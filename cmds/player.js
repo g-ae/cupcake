@@ -2,7 +2,7 @@ const Discord = require('discord.js')
 const api = require('../callAPI.js')
 const fetch = require('cross-fetch')
 const actions = require("../actions.js")
-const emojis = require("../emojis.json")
+const e = require("../emojis.json")
 var gPlayerName = ""
 
 module.exports = {
@@ -13,7 +13,8 @@ module.exports = {
         interaction.reply({
             embeds: [new Discord.MessageEmbed().setTitle(`loading **${gPlayerName}**...`).setColor(0xffff00)]
         })
-        this.sendUserProfile(interaction, gPlayerName)
+        
+        setTimeout(() => { this.sendUserProfile(interaction, gPlayerName) }, 350);
     },
     sendUserProfile(interaction, playerName){
         // summoner request
@@ -22,24 +23,19 @@ module.exports = {
             // check request status
             if (r.status == 200) {
                 r.json().then(j => {
-                    fetch(api.getRiotAccountRequest(j.puuid))
-                    .then(riotIdRes => {
-                        riotIdRes.json()
-                        .then(riotIdJson => {
+                    fetch(api.getRankedEntries(j.id))
+                    .then(rRanked => {
+                        rRanked.json().then(jRanked => {
                             const embed = new Discord.MessageEmbed()
                                 .setTitle(j.name)
+                                .setDescription(`Level ${j.summonerLevel}`)
                                 .setThumbnail(`http://ddragon.leagueoflegends.com/cdn/${api.getDDragonVersion()}/img/profileicon/${j.profileIconId}.png`)
-                                .addFields({
-                                        name: "Level",
-                                        value: `${j.summonerLevel}`
-                                    },{
-                                        name: "Game name",
-                                        value: `${riotIdJson.gameName}#${riotIdJson.tagLine}`
-                                    },{
-                                        name: "Last action date",
-                                        value: `${new Date(j.revisionDate)}`
-                                    }
-                                )
+                            for (nb in jRanked) {
+                                embed.addFields({
+                                    name: `Rank - ${actions.getRightQueueName(jRanked[nb].queueType)}`,
+                                    value: `${actions.capitalizeFirstLetter(jRanked[nb].tier.toLowerCase())} ${jRanked[nb].rank}\n${jRanked[nb].wins} wins\n${jRanked[nb].losses} losses\n${parseFloat(jRanked[nb].wins / (jRanked[nb].wins + jRanked[nb].losses) * 100).toFixed(2)}% win rate`
+                                })
+                            }
                             //#endregion
 
                             //#region Création boutons sous embed
@@ -68,15 +64,14 @@ module.exports = {
                                 }
                                 i.deferUpdate()
                             })
-                            //#endregion
+                        //#endregion
                         })
                     })
-                    
                 })
             } else if (r.status == 401 || r.status == 403) {
                 actions.ErreurCleAPI(interaction)
             } else {
-                interaction.editReply(`Le joueur **${playerName}** n'existe pas !`)
+                interaction.editReply({embeds: [new Discord.MessageEmbed().setTitle(`Le joueur **${playerName}** n'existe pas !`).setColor(0xF00)]})
             }
         })
     },
@@ -129,16 +124,64 @@ module.exports = {
         })
     },
     sendUserMatches(interaction){
-        interaction.editReply({
-            content: "frero t cringe",
-            embeds: [],
-            components: []
+        fetch(api.getSummonerRequest(gPlayerName))
+        .then(r => {
+            r.json().then(j => {
+                fetch(api.getRecentMatchesId(j.puuid))
+                .then(rm => {
+                    rm.json().then(jm => {
+                        const embed = new Discord.MessageEmbed()
+                            .setTitle(`${gPlayerName}'s last matches`)
+                            .setThumbnail(`http://ddragon.leagueoflegends.com/cdn/${api.getDDragonVersion()}/img/profileicon/${j.profileIconId}.png`)
+
+                        for (m in jm) {
+                            /*fetch(api.getMatchDetails(jm[m])).then(r => {
+                                r.json().then(j => {
+                                    var champs = ""
+                                    for(var u in j.info.participants) {
+                                        //champs += e[j.info.participants[u].championName]
+                                        champs += e["aatrox"]
+                                    }
+                                    console.log(champs)
+                                    embed.addField(jm[m], champs)
+                                })
+                            })*/
+                        }
+
+                        const row = new Discord.MessageActionRow()
+                            .addComponents(
+                                this.getRowButtonProfile(),
+                                this.getRowButtonMasteries()
+                            )
+                        interaction.editReply({
+                            embeds: [embed],
+                            components: [row]
+                        })
+
+                        const collector = interaction.channel.createMessageComponentCollector()
+                        collector.on('collect', (i) => {
+                            
+                            if (interaction.user.id === i.user.id) {
+                                collector.stop()
+                                if (i.component.customId == this.getCustomIdProfile()) {
+                                    this.sendUserProfile(interaction, gPlayerName)
+                                } else if (i.component.customId == this.getCustomIdMasteries()) {
+                                    this.sendTopMasteries(interaction, j.id)
+                                }
+                            } else {
+                                this.sendNotRightUserError(i)
+                            }
+                            i.deferUpdate()
+                        })
+                    })
+                })
+            })
         })
     },
     getRowButtonMasteries(){ // id : masteries
         return new Discord.MessageButton()
             .setCustomId(this.getCustomIdMasteries())
-            .setEmoji(emojis.m7)
+            .setEmoji(e.m7)
             .setLabel('Check masteries')
             .setStyle('SECONDARY')
     },

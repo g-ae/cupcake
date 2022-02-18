@@ -1,5 +1,5 @@
 const emojis = require("./emojis.json");
-const champs = require("./champions.json").data;
+const champs = require("./data/champions.json").data;
 
 module.exports = {
     addSeparator(number) {
@@ -21,8 +21,6 @@ module.exports = {
     },
     getMasteryEmote(mastery) {
         switch(mastery) {
-            default:
-                return "";
             case 4:
                 return emojis.m4;
             case 5:
@@ -31,6 +29,8 @@ module.exports = {
                 return emojis.m6;
             case 7:
                 return emojis.m7;
+            default:
+                return "";
         }
     },
     /**
@@ -80,5 +80,16 @@ module.exports = {
     },
     ErreurCleAPI(interaction) {
         interaction.editReply("La clé API est pétée fdp <@216308428828704769>")
+    },
+    getRightQueueName(data) {
+        switch(data){
+            case "RANKED_SOLO_5x5":
+                return "Ranked Solo/Duo"
+            case "RANKED_FLEX_SR":
+                return "Ranked Flex"
+        }
+    },
+    capitalizeFirstLetter(string) {
+        return string.charAt(0).toUpperCase() + string.slice(1);
     }
 }

@@ -10,7 +10,7 @@ const playerName = new SlashCommandStringOption()
 
 const championName = new SlashCommandStringOption()
     .setName("name")
-    .setDescription('Name of the champion to search')
+    .setDescription('Name of the champion to search (spaces are ignored)')
     .setRequired(true);
 
 const commands = [
