@@ -66,5 +66,13 @@ module.exports = {
     },
     getMatchDetails(matchId) {
         return `https://${server2}.api.riotgames.com/lol/match/v5/matches/${matchId}?${APIkey}`
+    },
+    /**
+     * Gets URL to champion's square icon
+     * @param {String} id 
+     * @returns {String} url to champion's square icon
+     */
+    getChampionSquareIcon(id) {
+        return `https://raw.communitydragon.org/latest/plugins/rcp-be-lol-game-data/global/default/v1/champion-icons/${id}.png`
     }
 }

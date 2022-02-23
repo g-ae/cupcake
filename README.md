@@ -1,2 +1,7 @@
-bot discord qui intéragit avec l'API de Riot Games.
-commencé le 26.12.2021
+Discord bot that interacts with Riot Games' API.
+
+#### à faire encore: (temp)
+
+* finir emojis.json
+* cache des images téléchargées dans dossier data
+* derniers matchs

@@ -68,8 +68,9 @@ module.exports = {
         return undefined;
     },
     getChampionFromName(name) {
+        var replacedName = name.toString().toLowerCase().replace(/[^0-9a-z]/gi, '')
         for (const champ in champs) {
-            if (champs[champ].name == name) {
+            if (champs[champ].name.toString().toLowerCase().replace(/[^0-9a-z]/gi, '') == replacedName) {
                 return champs[champ];
             }
         }
@@ -91,5 +92,29 @@ module.exports = {
     },
     capitalizeFirstLetter(string) {
         return string.charAt(0).toUpperCase() + string.slice(1);
+    },
+    /**
+     * Checks if champion exists in the emoji json
+     * @param {String} query name of champion
+     * @returns list with either only champion emoji or all choices
+     */
+    findChampionEmoji(query) {
+        var champs = []
+        if (emojis.hasOwnProperty(query)) {
+            champs.push(emojis[query])
+            return champs
+        } else {
+            // if not in emojis
+            for (var k in emojis) {
+                if (k == "m4" || k == "m5" || k == "m6" || k == "m7") continue // mastery emojis not used
+                if (k.startsWith(query)) {
+                    champs.push(k)
+                }
+            }
+            if (champs.length == 1) {
+                return this.findChampionEmoji(champs[0])
+            }
+            return champs
+        }
     }
 }

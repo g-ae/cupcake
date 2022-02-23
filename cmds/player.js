@@ -33,7 +33,7 @@ module.exports = {
                             for (nb in jRanked) {
                                 embed.addFields({
                                     name: `Rank - ${actions.getRightQueueName(jRanked[nb].queueType)}`,
-                                    value: `${actions.capitalizeFirstLetter(jRanked[nb].tier.toLowerCase())} ${jRanked[nb].rank}\n${jRanked[nb].wins} wins\n${jRanked[nb].losses} losses\n${parseFloat(jRanked[nb].wins / (jRanked[nb].wins + jRanked[nb].losses) * 100).toFixed(2)}% win rate`
+                                    value: `${actions.capitalizeFirstLetter(jRanked[nb].tier.toLowerCase())} ${jRanked[nb].rank} - ${jRanked[nb].leaguePoints} LP\n${jRanked[nb].wins} wins\n${jRanked[nb].losses} losses\n${parseFloat(jRanked[nb].wins / (jRanked[nb].wins + jRanked[nb].losses) * 100).toFixed(2)}% win rate`
                                 })
                             }
                             //#endregion
@@ -92,7 +92,7 @@ module.exports = {
                 }
                 const embed = new Discord.MessageEmbed()
                     .setTitle(`${gPlayerName}'s top 25 masteries`)
-                    .setDescription(reponse)
+                    .setDescription("Click on the mastery emote if you can't see it well.\n\n" + reponse)
 
                 const row = new Discord.MessageActionRow()
                 .addComponents(
