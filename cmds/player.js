@@ -3,33 +3,57 @@ const api = require('../callAPI.js')
 const fetch = require('cross-fetch')
 const actions = require("../actions.js")
 const e = require("../emojis.json")
+const cache = require("../cache")
 var gPlayerName = ""
+var gServer = ""
+var gRegion = ""
 
 module.exports = {
     name: "player",
     description: "",
+    args: ["region", "name"],
     execute(interaction, args) {
-        gPlayerName = actions.getPlayerNameFromArgs(args)
+        for(var i in args) {
+            if (i == 0) gServer = args[i]
+            else {
+                if (i != 1) gPlayerName += " "
+                gPlayerName += args[i]
+            }
+        }
+        if (!api.verifyServer(api.getRightServer(gServer))) {
+            interaction.reply({
+                embeds: [new Discord.MessageEmbed({
+                    title: "Error",
+                    description: "Server isn't right. Please use one of these :\n" + api.getServers(),
+                    color: 0xff0000
+                })]
+            })
+            return
+        } else {
+            gServer = api.getRightServer(gServer)
+            gRegion = api.getRegionFromServer(gServer)
+        }
         interaction.reply({
-            embeds: [new Discord.MessageEmbed().setTitle(`loading **${gPlayerName}**...`).setColor(0xffff00)]
+            embeds: [new Discord.MessageEmbed().setTitle(`loading **${gPlayerName}**...`)]
         })
         
+        // if there's no timeout, the code will keep going without waiting
         setTimeout(() => { this.sendUserProfile(interaction, gPlayerName) }, 350);
     },
     sendUserProfile(interaction, playerName){
         // summoner request
-        fetch(api.getSummonerRequest(playerName))
+        fetch(api.getSummonerRequest(gServer, playerName))
         .then(r => {
             // check request status
             if (r.status == 200) {
                 r.json().then(j => {
-                    fetch(api.getRankedEntries(j.id))
+                    fetch(api.getRankedEntries(gServer, j.id))
                     .then(rRanked => {
                         rRanked.json().then(jRanked => {
                             const embed = new Discord.MessageEmbed()
                                 .setTitle(j.name)
                                 .setDescription(`Level ${j.summonerLevel}`)
-                                .setThumbnail(`http://ddragon.leagueoflegends.com/cdn/${api.getDDragonVersion()}/img/profileicon/${j.profileIconId}.png`)
+                                .setThumbnail(api.getProfileIconURL(j.profileIconId))
                             for (nb in jRanked) {
                                 embed.addFields({
                                     name: `Rank - ${actions.getRightQueueName(jRanked[nb].queueType)}`,
@@ -69,7 +93,7 @@ module.exports = {
                     })
                 })
             } else if (r.status == 401 || r.status == 403) {
-                actions.ErreurCleAPI(interaction)
+                actions.apiKeyError(interaction)
             } else {
                 interaction.editReply({embeds: [new Discord.MessageEmbed().setTitle(`Le joueur **${playerName}** n'existe pas !`).setColor(0xF00)]})
             }
@@ -77,7 +101,7 @@ module.exports = {
     },
     sendTopMasteries(interaction, userId) {
         const topChamps = []
-        fetch(api.getChampionMasteryRequest(userId))
+        fetch(api.getChampionMasteryRequest(gServer, userId))
         .then(res => {
             res.json().then(json => {
                 for (i = 0; i <= 24; i++) {
@@ -87,8 +111,9 @@ module.exports = {
                 var reponse = "";
                 for(var champ in topChamps) {
                     if (topChamps[champ] != topChamps[0]) reponse += `\n`;
+                    const champName = actions.getChampion(topChamps[champ].championId, 3).name
 
-                    reponse += `**${actions.getChampion(topChamps[champ].championId, 3).name} :** ${actions.getMasteryEmote(topChamps[champ].championLevel)} ${actions.addSeparator(topChamps[champ].championPoints)} pts`
+                    reponse += `**${actions.findChampionEmoji(champName)} ${champName} :** ${actions.getMasteryEmote(topChamps[champ].championLevel)} ${actions.addSeparator(topChamps[champ].championPoints)} pts`
                 }
                 const embed = new Discord.MessageEmbed()
                     .setTitle(`${gPlayerName}'s top 25 masteries`)
@@ -124,28 +149,35 @@ module.exports = {
         })
     },
     sendUserMatches(interaction){
-        fetch(api.getSummonerRequest(gPlayerName))
+        fetch(api.getSummonerRequest(gServer, gPlayerName))
         .then(r => {
             r.json().then(j => {
-                fetch(api.getRecentMatchesId(j.puuid))
+                fetch(api.getRecentMatchesId(gRegion, j.puuid))
                 .then(rm => {
                     rm.json().then(jm => {
                         const embed = new Discord.MessageEmbed()
                             .setTitle(`${gPlayerName}'s last matches`)
-                            .setThumbnail(`http://ddragon.leagueoflegends.com/cdn/${api.getDDragonVersion()}/img/profileicon/${j.profileIconId}.png`)
+                            .setThumbnail(api.getProfileIconURL(j.profileIconId))
 
-                        for (m in jm) {
-                            /*fetch(api.getMatchDetails(jm[m])).then(r => {
-                                r.json().then(j => {
-                                    var champs = ""
-                                    for(var u in j.info.participants) {
-                                        //champs += e[j.info.participants[u].championName]
-                                        champs += e["aatrox"]
+                        for (m of jm) {
+                            if (!cache.isMatchSaved(m)) {
+                                fetch(api.getMatchDetails(gRegion, m)).then(r => {
+                                    if (r.status != 200) {
+                                        console.log(`${r.status} - ${r.statusText}`)
+                                    } else {
+                                        r.json().then(j => {
+                                            cache.saveMatch(j, j["metadata"]["matchId"])
+                                        })
                                     }
-                                    console.log(champs)
-                                    embed.addField(jm[m], champs)
                                 })
-                            })*/
+                            }
+                            const match = cache.getSavedMatch(m)
+
+                            var participants = ""
+                            for (var p of match["info"]["participants"]) {
+                                participants += actions.findChampionEmoji(p["championName"])
+                            }
+                            embed.addField(match["metadata"]["matchId"], participants)
                         }
 
                         const row = new Discord.MessageActionRow()

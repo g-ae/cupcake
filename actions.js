@@ -1,5 +1,6 @@
 const emojis = require("./emojis.json");
 const champs = require("./data/champions.json").data;
+const levenshtein = require('js-levenshtein');
 
 module.exports = {
     addSeparator(number) {
@@ -44,12 +45,10 @@ module.exports = {
     getChampion(idKeyOrName, isId = 1) {
         if (isId == 1) {
             // if looking for ID
-            var champ = this.getChampionFromId(idKeyOrName);
-            console.log(champ);
+            return this.getChampionFromId(idKeyOrName);
         } else if (isId == 2) {
             // if looking for name
-            var champ = this.getChampionFromName(idKeyOrName);
-            console.log("name" + champ)
+            return this.getChampionFromName(idKeyOrName);
         } else if (isId == 3) {
             return this.getChampionFromKey(idKeyOrName)
         } else {
@@ -76,11 +75,8 @@ module.exports = {
         }
         return undefined;
     },
-    getPlayerNameFromArgs(args) {
-        return args.join(' ');
-    },
-    ErreurCleAPI(interaction) {
-        interaction.editReply("La clé API est pétée fdp <@216308428828704769>")
+    apiKeyError(interaction) {
+        interaction.editReply("The API key has an error. Contact an admin.")
     },
     getRightQueueName(data) {
         switch(data){
@@ -95,10 +91,11 @@ module.exports = {
     },
     /**
      * Checks if champion exists in the emoji json
-     * @param {String} query name of champion
-     * @returns list with either only champion emoji or all choices
+     * @param {String} name name of champion
+     * @returns {Array} array with either only champion emoji (index 0) or all choices
      */
-    findChampionEmoji(query) {
+    findChampionEmoji(name) {
+        const query = name.toString().replace(/[_0-9\W]/g, '').toLowerCase();
         var champs = []
         if (emojis.hasOwnProperty(query)) {
             champs.push(emojis[query])
@@ -107,7 +104,7 @@ module.exports = {
             // if not in emojis
             for (var k in emojis) {
                 if (k == "m4" || k == "m5" || k == "m6" || k == "m7") continue // mastery emojis not used
-                if (k.startsWith(query)) {
+                if (k.includes(query)) {
                     champs.push(k)
                 }
             }
@@ -116,5 +113,26 @@ module.exports = {
             }
             return champs
         }
+    },
+    /**
+     * Uses the Levenshtein's algorithm to compare two names
+     * @param {String} name 
+     * @returns {String} champion name that is closest
+     */
+    getClosestMatchChampionName(name) {
+        var bestmatchname = ""
+        var bestmatchvalue = 10
+        for (var champ in emojis) {
+            if (champ == "m4" || champ == "m5" || champ == "m6" || champ == "m7") continue // mastery emojis not used
+            var l = levenshtein(name, champ)
+            if (bestmatchvalue > l) {
+                bestmatchvalue = l
+                bestmatchname = champ
+            }
+        }
+        if (bestmatchvalue >= 4) {
+            return undefined
+        }
+        return bestmatchname
     }
 }

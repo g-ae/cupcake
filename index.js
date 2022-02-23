@@ -4,8 +4,7 @@ const client = new Discord.Client({
     intents: [
         Discord.Intents.FLAGS.GUILDS, 
         Discord.Intents.FLAGS.GUILD_MEMBERS, 
-        Discord.Intents.FLAGS.GUILD_MESSAGES,
-        Discord.Intents.FLAGS.GUILD_MESSAGE_REACTIONS
+        Discord.Intents.FLAGS.GUILD_MESSAGES
     ]
 });            // bot
 client.commands = new Discord.Collection();     // collection de commandes
@@ -27,10 +26,19 @@ client.on('interactionCreate', async interaction => {
 
     if (!client.commands.has(commandName)) return;
     try {
-        client.commands.get(commandName).execute(interaction, [ interaction.options.get("name").value ]);
+        var options = []
+        for (var arg of client.commands.get(commandName).args) options.push(interaction.options.get(arg).value)
+        client.commands.get(commandName).execute(interaction, options);
     } catch(error) {
-        console.error(error);
-        interaction.reply('an error has occured, contact an admin', {ephemeral: true});
+        const embedError = new Discord.MessageEmbed()
+            .setTitle('An error has occured, contact an admin')
+            .setColor(0xff0000)
+        try {
+            interaction.reply({ embeds: [ embedError ] });
+        }
+        catch(err) {
+            interaction.editReply({ embeds: [ embedError ] });
+        }
     }
 })
 

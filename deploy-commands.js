@@ -8,13 +8,18 @@ const playerName = new SlashCommandStringOption()
     .setDescription('Name of the player to check')
     .setRequired(true);
 
+const region = new SlashCommandStringOption()
+    .setName("region")
+    .setDescription("Name of the region")
+    .setRequired(true)
+
 const championName = new SlashCommandStringOption()
     .setName("name")
     .setDescription('Name of the champion to search (spaces are ignored)')
     .setRequired(true);
 
 const commands = [
-    new SlashCommandBuilder().setName('player').setDescription('Check a player\'s stats !').addStringOption(playerName),
+    new SlashCommandBuilder().setName('player').setDescription('Check a player\'s stats !').addStringOption(region).addStringOption(playerName),
     new SlashCommandBuilder().setName('champion').setDescription('Get champion info.').addStringOption(championName),
     new SlashCommandBuilder().setName('puuid').setDescription('Get user PUUID').addStringOption(playerName)
 ].map(command => command.toJSON());
