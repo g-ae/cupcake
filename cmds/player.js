@@ -211,25 +211,28 @@ module.exports = {
         })
     },
     getRowButtonMasteries(){ // id : masteries
-        return new Discord.MessageButton()
-            .setCustomId(this.getCustomIdMasteries())
-            .setEmoji(e.m7)
-            .setLabel('Check masteries')
-            .setStyle('SECONDARY')
+        return new Discord.MessageButton({
+            customId: this.getCustomIdMasteries(),
+            emoji: e.m7,
+            label: 'Check masteries',
+            style: 'SECONDARY'
+        })
     },
     getRowButtonMatches(){ // id : matches
-        return new Discord.MessageButton()
-            .setCustomId(this.getCustomIdMatches())
-            .setEmoji('🎮')
-            .setLabel('Check matches')
-            .setStyle('SECONDARY')
+        return new Discord.MessageButton({
+            customId: this.getCustomIdMatches(),
+            emoji: '🎮',
+            label: 'Check matches',
+            style: 'SECONDARY'
+        })
     },
     getRowButtonProfile(){ // id : profile
-        return new Discord.MessageButton()
-            .setCustomId(this.getCustomIdProfile())
-            .setEmoji('🗒️')
-            .setLabel('Check profile')
-            .setStyle('SECONDARY')
+        return new Discord.MessageButton({
+            customId: this.getCustomIdProfile(),
+            emoji: '🗒️',
+            label: 'Check profile',
+            style: 'SECONDARY'
+        })
     },
     getCustomIdMasteries(){
         return "masteries"
@@ -243,9 +246,11 @@ module.exports = {
     sendNotRightUserError(interaction){
         interaction.reply({
             embeds: [
-                new Discord.MessageEmbed()
-                    .setTitle("Vous n'êtes pas celui qui a effectué la commande.")
-                    .setColor(0xFF0000)
+                new Discord.MessageEmbed({
+                    title: "Error",
+                    description: "You're not the person who used the command.",
+                    color: 0xff0000
+                })
             ],
             ephemeral: true
         })

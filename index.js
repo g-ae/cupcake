@@ -1,5 +1,6 @@
 const Discord = require("discord.js");          // librairie discord.js
-const fs = require('fs')                        // filestream -> recherche, modification, lecture de fichiers
+const fs = require('fs');                        // filestream -> recherche, modification, lecture de fichiers
+const cache = require('./cache')
 const client = new Discord.Client({
     intents: [
         Discord.Intents.FLAGS.GUILDS, 
@@ -9,7 +10,6 @@ const client = new Discord.Client({
 });            // bot
 client.commands = new Discord.Collection();     // collection de commandes
 require('colors');               // couleurs dans le terminal
-const api = require('./callAPI');
 require("dotenv").config();
 
 // recherche de commandes dans ./cmds/
@@ -42,21 +42,20 @@ client.on('interactionCreate', async interaction => {
     }
 })
 
-api.fetchDDragonVersion()
-api.setupAllChamps()
-
-// Recherche de commandes dans le dossier cmds
-for (const file of commandFiles){
-    try{
-        const command = require(`./cmds/${file}`);
-        client.commands.set(command.name, command);
-        for(alias in command.alias) {
-            client.commands.set(command.alias[alias], command);
+cache.setup(() => {
+    // Recherche de commandes dans le dossier cmds
+    for (const file of commandFiles){
+        try{
+            const command = require(`./cmds/${file}`);
+            client.commands.set(command.name, command);
+            for(alias in command.alias) {
+                client.commands.set(command.alias[alias], command);
+            }
+            console.log(`CMD => ${file} success`.green);
+        } catch(error) {
+            console.log(`ERR => ${file} error`.red + "\nERREUR:\n" + error);
         }
-        console.log(`CMD => ${file} success`.green);
-    } catch(error) {
-        console.log(`ERR => ${file} error`.red + "\nERREUR:\n" + error);
     }
-}
+})
 
 client.login(process.env.TOKEN);

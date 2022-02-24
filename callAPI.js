@@ -1,6 +1,4 @@
-const fetch = require('cross-fetch');
-const fs = require('fs');
-const path = require('path');
+const { getDDragonVersion } = require('./cache')
 require('dotenv').config();
 
 const serverlist = [ "eun1", "euw1", "ru", "tr1", "jp1", "kr", "la1", "la2", "na1", "br1", "oc1" ]
@@ -61,42 +59,7 @@ module.exports = {
         return `https://${server}.api.riotgames.com/lol/champion-mastery/v4/champion-masteries/by-summoner/${summonerId}?${APIkey}`;
     },
     getProfileIconURL(id) {
-        return `http://ddragon.leagueoflegends.com/cdn/${this.getDDragonVersion()}/img/profileicon/${id}.png`
-    },
-    getDDragonVersion() {
-        var version = ""
-        if (!fs.existsSync('./data/versionApi.json')) {
-            version = this.fetchDDragonVersion(this.getDDragonVersion)
-        } else {
-            version = require('./data/versionApi.json').DDragon
-        }
-        if (version == undefined) {
-            version = this.fetchDDragonVersion(this.getDDragonVersion)
-        }
-        return version
-    },
-    setupAllChamps(){
-        fetch(`http://ddragon.leagueoflegends.com/cdn/${this.getDDragonVersion()}/data/en_US/champion.json`)
-        // ne contient pas toutes les infos : pour plus de détails prendre /champion/"Aatrox".json
-        .then(r => {
-            r.json().then(j => {
-                fs.writeFileSync(path.resolve(`./data/`, `champions.json`), JSON.stringify(j))
-            })
-        })
-    },
-    fetchDDragonVersion(callback){
-        fetch('https://ddragon.leagueoflegends.com/api/versions.json')
-        .then(r => {
-            r.json().then(j => {
-                var json = {
-                    "DDragon": j[0]
-                };
-                if (!fs.existsSync('./data/')) fs.mkdirSync('./data/')
-                fs.writeFileSync(path.resolve(`./data/`, `versionApi.json`), JSON.stringify(json))
-
-                return callback
-            })
-        })
+        return `http://ddragon.leagueoflegends.com/cdn/${getDDragonVersion()}/img/profileicon/${id}.png`
     },
     getRiotAccountRequest(region, puuid) {
         return `https://${region}.api.riotgames.com/riot/account/v1/accounts/by-puuid/${puuid}?${APIkey}`
