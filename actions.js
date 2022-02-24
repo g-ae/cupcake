@@ -1,6 +1,7 @@
 const emojis = require("./emojis.json");
 const champs = require("./data/champions.json").data;
 const levenshtein = require('js-levenshtein');
+const Discord = require('discord.js')
 
 module.exports = {
     addSeparator(number) {
@@ -76,7 +77,13 @@ module.exports = {
         return undefined;
     },
     apiKeyError(interaction) {
-        interaction.editReply("The API key has an error. Contact an admin.")
+        const e = new Discord.MessageEmbed({
+            title: "Error",
+            description: "The API key has an error. Contact an admin.",
+            color: 0xFF0000
+        })
+        if (!interaction.replied) interaction.reply({ embeds: [ e ] })
+        interaction.editReply({ embeds: [ e ] })
     },
     getRightQueueName(data) {
         switch(data){
@@ -116,7 +123,7 @@ module.exports = {
     },
     /**
      * Uses the Levenshtein's algorithm to compare two names
-     * @param {String} name 
+     * @param {String} name champion's name
      * @returns {String} champion name that is closest
      */
     getClosestMatchChampionName(name) {
@@ -130,9 +137,7 @@ module.exports = {
                 bestmatchname = champ
             }
         }
-        if (bestmatchvalue >= 4) {
-            return undefined
-        }
+        if (bestmatchvalue >= 4) return undefined
         return bestmatchname
     }
 }

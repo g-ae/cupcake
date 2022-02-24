@@ -52,8 +52,11 @@ module.exports = {
                 return "europe"
         }
     },
-    getSummonerRequest(server, name){
+    getSummonerRequestByName(server, name){
         return `https://${server}.api.riotgames.com/lol/summoner/v4/summoners/by-name/${name}?${APIkey}`;
+    },
+    getSummonerRequestByPuuid(server, puuid) {
+        return `https://${server}.api.riotgames.com/lol/summoner/v4/summoners/by-puuid/${puuid}?${APIkey}`
     },
     getChampionMasteryRequest(server, summonerId){
         return `https://${server}.api.riotgames.com/lol/champion-mastery/v4/champion-masteries/by-summoner/${summonerId}?${APIkey}`;

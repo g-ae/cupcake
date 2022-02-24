@@ -1,5 +1,6 @@
-const Discord = require("discord.js");          // librairie discord.js
-const fs = require('fs');                        // filestream -> recherche, modification, lecture de fichiers
+const Discord = require("discord.js");
+const fs = require('fs');
+const { exit } = require("process");
 const cache = require('./cache')
 const client = new Discord.Client({
     intents: [
@@ -7,15 +8,16 @@ const client = new Discord.Client({
         Discord.Intents.FLAGS.GUILD_MEMBERS, 
         Discord.Intents.FLAGS.GUILD_MESSAGES
     ]
-});            // bot
-client.commands = new Discord.Collection();     // collection de commandes
-require('colors');               // couleurs dans le terminal
+});
+client.commands = new Discord.Collection();
+require('colors');              // colors on console
 require("dotenv").config();
 
-// recherche de commandes dans ./cmds/
+// looking for all commands on ./cmds/
 const commandFiles = fs.readdirSync('./cmds/').filter(file => file.endsWith('.js'));
 
 client.on('ready', () => {
+    //cache.refreshProfileByPuuid('euw1', 'cxPSNjt0w2uYi3O64sgaelS86ZZrI4BVXzYnC4qdiKv1cDOhP-_fExgYJT-NDBGj-qX0eR78bxIgSA')
     console.log('\nBOT => connected'.green);
 });
 
@@ -33,17 +35,14 @@ client.on('interactionCreate', async interaction => {
         const embedError = new Discord.MessageEmbed()
             .setTitle('An error has occured, contact an admin')
             .setColor(0xff0000)
-        try {
-            interaction.reply({ embeds: [ embedError ] });
-        }
-        catch(err) {
-            interaction.editReply({ embeds: [ embedError ] });
-        }
+        
+        if (interaction.replied) interaction.reply({ embeds: [ embedError ] })
+        else interaction.editReply({ embeds: [ embedError ] })
     }
 })
 
 cache.setup(() => {
-    // Recherche de commandes dans le dossier cmds
+    // setting all commands in the command collection
     for (const file of commandFiles){
         try{
             const command = require(`./cmds/${file}`);
@@ -53,7 +52,7 @@ cache.setup(() => {
             }
             console.log(`CMD => ${file} success`.green);
         } catch(error) {
-            console.log(`ERR => ${file} error`.red + "\nERREUR:\n" + error);
+            console.log(`ERR => ${file} error`.red + "\ERR:\n" + error);
         }
     }
 })
