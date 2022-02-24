@@ -4,6 +4,10 @@ const levenshtein = require('js-levenshtein');
 const Discord = require('discord.js')
 
 module.exports = {
+    pluralOrNot(number) {
+        if (number != 1) return "s"
+        return ""
+    },
     addSeparator(number) {
         var test = String(number)
         var final = ""

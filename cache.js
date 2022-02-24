@@ -2,6 +2,7 @@ const fs = require('fs')
 const path = require('path')
 const fetch = require('cross-fetch');
 const api = require('./callAPI')
+const actions = require('./actions')
 
 module.exports = {
     //#region match
@@ -34,6 +35,7 @@ module.exports = {
         NAME.json (summoner)
         mastery.json
         matches.json
+        ranked.json
         creationTime.json
     */
     checkFolderExistsProfile() {
@@ -70,10 +72,16 @@ module.exports = {
         this.checkFolderExistsProfile();
         
         if (!this.isProfileSavedByPuuid(puuid)) {
-            const jSummoner = await (await fetch(api.getSummonerRequestByPuuid(server, puuid))).json()
+            const r = await fetch(api.getSummonerRequestByPuuid(server, puuid))
+            if (r.status != 200) return undefined
+            const jSummoner = await (r).json()
             var name = jSummoner["name"]
             fs.mkdirSync(`./data/profiles/${puuid}/`)
             fs.writeFileSync(`./data/profiles/${puuid}/${name}.json`, JSON.stringify(jSummoner))
+            console.log(`Saved user "${name}" of server "${server}"`)
+
+            const jRanked = await (await fetch(api.getRankedEntries(server, jSummoner.id))).json()
+            fs.writeFileSync(`./data/profiles/${puuid}/ranked.json`, JSON.stringify(jRanked))
 
             const jMastery = await (await fetch(api.getChampionMasteryRequest(server, jSummoner.id))).json()
             fs.writeFileSync(`./data/profiles/${puuid}/mastery.json`, JSON.stringify(jMastery))
@@ -91,47 +99,64 @@ module.exports = {
         return undefined
     },
     getRefreshTimeByPuuid(puuid) {
-        const epochCreated = require(`./data/profiles/${puuid}/creationTime.json`)["time"]
+        const epochCreated = this.getRefreshTimeEpochByPuuid(puuid)
 
         var seconds = Math.floor((new Date() - epochCreated) / 1000);
         
         var interval = seconds / 31536000;
         
         if (interval > 1) {
-            return Math.floor(interval) + " years ago";
+            return Math.floor(interval) + ` year${actions.pluralOrNot(Math.floor(interval))} ago`;
         }
         interval = seconds / 2592000;
         if (interval > 1) {
-            return Math.floor(interval) + " months ago";
+            return Math.floor(interval) + ` month${actions.pluralOrNot(Math.floor(interval))} ago`;
         }
         interval = seconds / 86400;
         if (interval > 1) {
-            return Math.floor(interval) + " days ago";
+            return Math.floor(interval) + ` day${actions.pluralOrNot(Math.floor(interval))} ago`;
         }
         interval = seconds / 3600;
         if (interval > 1) {
-            return Math.floor(interval) + " hours ago";
+            return Math.floor(interval) + ` hour${actions.pluralOrNot(Math.floor(interval))} ago`;
         }
         interval = seconds / 60;
         if (interval > 1) {
-            return Math.floor(interval) + " minutes ago";
+            return Math.floor(interval) + ` minute${actions.pluralOrNot(Math.floor(interval))} ago`;
         }
-        return Math.floor(seconds) + " seconds ago";
+        return Math.floor(seconds) + ` second${actions.pluralOrNot(Math.floor(interval))} ago`;
+    },
+    getRefreshTimeEpochByPuuid(puuid) {
+        return require(`./data/profiles/${puuid}/creationTime.json`)["time"]
+    },
+    getRankedEntriesByPuuid(puuid) {
+        if (this.isProfileSavedByPuuid(puuid)) {
+            for (var file of fs.readdirSync(`./data/profiles/${puuid}/`)) {
+                if (file == "ranked.json") return require(file)
+            }
+        }
+
     },
     refreshProfileByPuuid(server, puuid) {
-        fs.rmSync(`./data/profiles/${puuid}`, { recursive: true, force: true })
+        if (fs.existsSync(`./data/profiles/${puuid}`)) fs.rmSync(`./data/profiles/${puuid}`, { recursive: true, force: true })
         this.saveProfile(server, puuid)
     },
     refreshProfileByName(server, name) {
         this.refreshProfileByPuuid(server, getProfileByName(server, name)["puuid"])
     },
+    /**
+     * Get an user's puuid by their name
+     * @param {String} server 
+     * @param {String} name 
+     * @returns User's PUUID, or undefined if user doesn't exist
+     */
     async getPuuidByName(server, name) {
         this.checkFolderExistsProfile();
 
         if (this.isProfileSavedByName(name)) {
             for (var user of fs.readdirSync(`./data/profiles/`)) {
                 for (var file of fs.readdirSync(`./data/profiles/${user}/`)) {
-                    if (file != "creationTime.json" && file != "mastery.json" && file != "matches.json") {
+                    if (file != "creationTime.json" && file != "mastery.json" && file != "matches.json" && file != "ranked.json") {
                         return require(`./data/profiles/${user}/${file}`)["puuid"]
                     } 
                 }
@@ -139,18 +164,20 @@ module.exports = {
             return undefined
         } else {
             const sum = await (await fetch(api.getSummonerRequestByName(server, name))).json()
-            await this.saveProfile(server, sum["puuid"])
+            const saved = await this.saveProfile(server, sum["puuid"])
+
+            if (saved == undefined) return undefined
             return sum["puuid"]
         }
     },
     async getProfileByPuuid(server, puuid) {
         if (this.isProfileSavedByPuuid(puuid)) {
             for (var file of fs.readdirSync(`./data/profiles/${puuid}/`)) {
-                if (file != "creationTime.json" && file != "mastery.json" && file != "matches.json") return require(file.path)
+                if (file != "creationTime.json" && file != "mastery.json" && file != "matches.json" && file != "ranked.json") return require(`./data/profiles/${user}/${file}`)
             }
         } else {
             const j = await this.saveProfile(server, puuid)
-            return j["puuid"]
+            return j
         }
     },
     //#endregion

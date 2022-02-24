@@ -64,9 +64,6 @@ module.exports = {
     getProfileIconURL(id) {
         return `http://ddragon.leagueoflegends.com/cdn/${getDDragonVersion()}/img/profileicon/${id}.png`
     },
-    getRiotAccountRequest(region, puuid) {
-        return `https://${region}.api.riotgames.com/riot/account/v1/accounts/by-puuid/${puuid}?${APIkey}`
-    },
     getRankedEntries(server, encryptedSummonerId) {
         return `https://${server}.api.riotgames.com/lol/league/v4/entries/by-summoner/${encryptedSummonerId}?${APIkey}`;
     },
