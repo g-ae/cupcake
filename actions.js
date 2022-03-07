@@ -1,9 +1,21 @@
-const emojis = require("./emojis.json");
+const masteries = require("./emojis/masteries.json");
+const champEmojis = require("./emojis/champions.json")
+const fs = require('fs')
 const champs = require("./data/champions.json").data;
 const levenshtein = require('js-levenshtein');
 const Discord = require('discord.js')
 
 module.exports = {
+    /**
+     * Get data from a JSON file without using require() which caches everything it loads
+     * @param file json file path
+     * @returns json file's content
+     */
+    getDataFromJSON(file) {
+        if (!fs.existsSync(file)) return undefined
+
+        return JSON.parse(fs.readFileSync(file))
+    },
     pluralOrNot(number) {
         if (number != 1) return "s"
         return ""
@@ -28,13 +40,13 @@ module.exports = {
     getMasteryEmote(mastery) {
         switch(mastery) {
             case 4:
-                return emojis.m4;
+                return masteries.m4;
             case 5:
-                return emojis.m5;
+                return masteries.m5;
             case 6:
-                return emojis.m6;
+                return masteries.m6;
             case 7:
-                return emojis.m7;
+                return masteries.m7;
             default:
                 return "";
         }
@@ -108,12 +120,12 @@ module.exports = {
     findChampionEmoji(name) {
         const query = name.toString().replace(/[_0-9\W]/g, '').toLowerCase();
         var champs = []
-        if (emojis.hasOwnProperty(query)) {
-            champs.push(emojis[query])
+        if (champEmojis.hasOwnProperty(query)) {
+            champs.push(champEmojis[query])
             return champs
         } else {
             // if not in emojis
-            for (var k in emojis) {
+            for (var k in champEmojis) {
                 if (k == "m4" || k == "m5" || k == "m6" || k == "m7") continue // mastery emojis not used
                 if (k.includes(query)) {
                     champs.push(k)
@@ -133,8 +145,7 @@ module.exports = {
     getClosestMatchChampionName(name) {
         var bestmatchname = ""
         var bestmatchvalue = 10
-        for (var champ in emojis) {
-            if (champ == "m4" || champ == "m5" || champ == "m6" || champ == "m7") continue // mastery emojis not used
+        for (var champ in champEmojis) {
             var l = levenshtein(name, champ)
             if (bestmatchvalue > l) {
                 bestmatchvalue = l

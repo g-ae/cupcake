@@ -17,27 +17,28 @@ require("dotenv").config();
 const commandFiles = fs.readdirSync('./cmds/').filter(file => file.endsWith('.js'));
 
 client.on('ready', () => {
-    //cache.refreshProfileByPuuid('euw1', 'cxPSNjt0w2uYi3O64sgaelS86ZZrI4BVXzYnC4qdiKv1cDOhP-_fExgYJT-NDBGj-qX0eR78bxIgSA')
     console.log('\nBOT => connected'.green);
 });
 
 client.on('interactionCreate', async interaction => {
-    if (!interaction.isCommand()) return;
+    if (interaction.isCommand()) {
+        const { commandName } = interaction;
 
-    const { commandName } = interaction;
+        if (!client.commands.has(commandName)) return;
+        try {
+            var options = []
+            for (let arg of client.commands.get(commandName).args) options.push(interaction.options.get(arg).value)
+            await client.commands.get(commandName).execute(interaction, options);
+        } catch(error) {
+            const embedError = new Discord.MessageEmbed()
+                .setTitle('An error has occured, contact an admin')
+                .setColor(0xff0000)
 
-    if (!client.commands.has(commandName)) return;
-    try {
-        var options = []
-        for (var arg of client.commands.get(commandName).args) options.push(interaction.options.get(arg).value)
-        client.commands.get(commandName).execute(interaction, options);
-    } catch(error) {
-        const embedError = new Discord.MessageEmbed()
-            .setTitle('An error has occured, contact an admin')
-            .setColor(0xff0000)
-        
-        if (interaction.replied) interaction.reply({ embeds: [ embedError ] })
-        else interaction.editReply({ embeds: [ embedError ] })
+            if (!interaction.replied) interaction.reply({ embeds: [ embedError ] })
+            else interaction.editReply({ embeds: [ embedError ] })
+        }
+    } else if (interaction.isButton()) {
+        console.log(interaction.customId)
     }
 })
 

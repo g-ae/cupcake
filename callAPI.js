@@ -1,4 +1,3 @@
-const { getDDragonVersion } = require('./cache')
 require('dotenv').config();
 
 const serverlist = [ "eun1", "euw1", "ru", "tr1", "jp1", "kr", "la1", "la2", "na1", "br1", "oc1" ]
@@ -60,9 +59,6 @@ module.exports = {
     },
     getChampionMasteryRequest(server, summonerId){
         return `https://${server}.api.riotgames.com/lol/champion-mastery/v4/champion-masteries/by-summoner/${summonerId}?${APIkey}`;
-    },
-    getProfileIconURL(id) {
-        return `http://ddragon.leagueoflegends.com/cdn/${getDDragonVersion()}/img/profileicon/${id}.png`
     },
     getRankedEntries(server, encryptedSummonerId) {
         return `https://${server}.api.riotgames.com/lol/league/v4/entries/by-summoner/${encryptedSummonerId}?${APIkey}`;

@@ -98,6 +98,13 @@ module.exports = {
         }
         return undefined
     },
+    getRefreshTimeInSeconds(puuid) {
+        const epochCreated = this.getRefreshTimeEpochByPuuid(puuid)
+
+        var seconds = Math.floor((new Date() - epochCreated) / 1000);
+
+        return seconds;
+    },
     getRefreshTimeByPuuid(puuid) {
         const epochCreated = this.getRefreshTimeEpochByPuuid(puuid)
 
@@ -124,25 +131,28 @@ module.exports = {
         if (interval > 1) {
             return Math.floor(interval) + ` minute${actions.pluralOrNot(Math.floor(interval))} ago`;
         }
+        if (interval == 0) {
+            return "just now"
+        }
         return Math.floor(seconds) + ` second${actions.pluralOrNot(Math.floor(interval))} ago`;
     },
     getRefreshTimeEpochByPuuid(puuid) {
-        return require(`./data/profiles/${puuid}/creationTime.json`)["time"]
+        return actions.getDataFromJSON(`./data/profiles/${puuid}/creationTime.json`)["time"]
     },
-    getRankedEntriesByPuuid(puuid) {
+    async getRankedEntriesByPuuid(puuid) {
         if (this.isProfileSavedByPuuid(puuid)) {
-            for (var file of fs.readdirSync(`./data/profiles/${puuid}/`)) {
-                if (file == "ranked.json") return require(file)
-            }
+            return actions.getDataFromJSON(`./data/profiles/${puuid}/ranked.json`)
         }
-
     },
-    refreshProfileByPuuid(server, puuid) {
-        if (fs.existsSync(`./data/profiles/${puuid}`)) fs.rmSync(`./data/profiles/${puuid}`, { recursive: true, force: true })
-        this.saveProfile(server, puuid)
+    async refreshProfileByPuuid(server, puuid) {
+        console.log(`Refreshing ${puuid}`)
+        if (fs.existsSync(`./data/profiles/${puuid}/`)) {
+            fs.rmSync(`./data/profiles/${puuid}`, { recursive: true, force: true })
+        }
+        await this.saveProfile(server, puuid)
     },
-    refreshProfileByName(server, name) {
-        this.refreshProfileByPuuid(server, getProfileByName(server, name)["puuid"])
+    async refreshProfileByName(server, name) {
+        await this.refreshProfileByPuuid(server, await this.getPuuidByName(server, name))
     },
     /**
      * Get an user's puuid by their name
@@ -156,41 +166,62 @@ module.exports = {
         if (this.isProfileSavedByName(name)) {
             for (var user of fs.readdirSync(`./data/profiles/`)) {
                 for (var file of fs.readdirSync(`./data/profiles/${user}/`)) {
-                    if (file != "creationTime.json" && file != "mastery.json" && file != "matches.json" && file != "ranked.json") {
-                        return require(`./data/profiles/${user}/${file}`)["puuid"]
-                    } 
+                    if (file == `${name}.json`) {
+                        return actions.getDataFromJSON(`./data/profiles/${user}/${file}`)["puuid"]
+                    }
                 }
             }
-            return undefined
-        } else {
-            const sum = await (await fetch(api.getSummonerRequestByName(server, name))).json()
-            const saved = await this.saveProfile(server, sum["puuid"])
-
-            if (saved == undefined) return undefined
-            return sum["puuid"]
+            await this.refreshProfileByName(server, name)
         }
+
+        const sum = await (await fetch(api.getSummonerRequestByName(server, name))).json()
+        const saved = await this.saveProfile(server, sum["puuid"])
+
+        if (saved == undefined) return undefined
+        return sum["puuid"]
     },
     async getProfileByPuuid(server, puuid) {
         if (this.isProfileSavedByPuuid(puuid)) {
-            for (var file of fs.readdirSync(`./data/profiles/${puuid}/`)) {
-                if (file != "creationTime.json" && file != "mastery.json" && file != "matches.json" && file != "ranked.json") return require(`./data/profiles/${user}/${file}`)
+            if (!this.checkAllFilesOk(server, puuid)) {
+                await this.saveProfile(server, puuid)
             }
-        } else {
-            const j = await this.saveProfile(server, puuid)
-            return j
+            try {
+                for (var file of fs.readdirSync(`./data/profiles/${puuid}/`)) {
+                    if (file != "creationTime.json" && file != "mastery.json" && file != "matches.json" && file != "ranked.json") return actions.getDataFromJSON(`./data/profiles/${puuid}/${file}`)
+                }
+            } catch(err) {
+                console.log("Doesn't exist for some reason")
+            }
         }
+        return await this.refreshProfileByPuuid(server, puuid)
+    },
+    async checkAllFilesOk(server, puuid) {
+        if (this.isProfileSavedByPuuid(puuid)) {
+            if (fs.readdirSync(`./data/profiles/${puuid}/`).length == 5) return true
+        }
+        await this.refreshProfileByPuuid(server, puuid)
+        return await this.checkAllFilesOk(server, puuid)
+    },
+    async getMasteryByPuuid(server, puuid) {
+        if (!this.isProfileSavedByPuuid(puuid)) await this.saveProfile(server, puuid)
+        await this.checkAllFilesOk(server, puuid)
+        return actions.getDataFromJSON(`./data/profiles/${puuid}/mastery.json`)
     },
     //#endregion
     //#region setup
     async setup(callback) {
-        await this.fetchDDragonVersion(() => {
-            this.setupAllChamps(() => {
-                callback()
+        try {
+            await this.fetchDDragonVersion(() => {
+                this.setupAllChamps(() => {
+                    callback()
+                })
             })
-        })
+        } catch(err) {
+            console.log("You are not connected to the internet.")
+        }
     },
     getDDragonVersion() {
-        return require('./data/versionApi.json').DDragon
+        return actions.getDataFromJSON('./data/versionApi.json').DDragon
     },
     fetchDDragonVersion(callback){
         fetch('https://ddragon.leagueoflegends.com/api/versions.json')
@@ -214,6 +245,12 @@ module.exports = {
                 callback()
             })
         })
+    },
+    //#endregion
+    
+    //#region other
+    getProfileIconURL(id){
+        return `http://ddragon.leagueoflegends.com/cdn/${this.getDDragonVersion()}/img/profileicon/${id}.png`
     }
     //#endregion
 }

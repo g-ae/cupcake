@@ -2,23 +2,31 @@ const Discord = require('discord.js')
 const api = require('../callAPI.js')
 const fetch = require('cross-fetch')
 const actions = require("../actions.js")
-const e = require("../emojis.json")
+const masteries = require("../emojis/masteries.json")
+const ranks = require('../emojis/ranks.json')
 const cache = require("../cache")
-const { getPuuidByName } = require('../cache')
+const { 
+    v1: uuidv1
+    //,
+    //v4: uuidv4,
+} = require('uuid');
 var gPlayerName = ""
 var gServer = ""
 var gRegion = ""
 var gPuuid = ""
+var gId = ""
 
 module.exports = {
     name: "player",
     description: "",
     args: ["region", "name"],
     async execute(interaction, args) {
-        for(var i in args) {
-            if (i == 0) gServer = args[i]
+        gId = uuidv1();
+        gPlayerName = ""
+        for(const i in args) {
+            if (i === "0") gServer = args[i]
             else {
-                if (i != 1) gPlayerName += " "
+                if (i !== "1") gPlayerName += " "
                 gPlayerName += args[i]
             }
         }
@@ -31,22 +39,22 @@ module.exports = {
                 })]
             })
             return
-        } else {
-            gServer = api.getRightServer(gServer)
-            gPuuid = cache.getPuuidByName(gServer, gPlayerName)
-            gRegion = api.getRegionFromServer(gServer)
-
-            if (gPuuid == undefined) {
-                interaction.reply({
-                    embeds: [new Discord.MessageEmbed({
-                        title: "Error",
-                        description: `The user **${gPlayerName}** does not exist in this server !`
-                    })]
-                })
-                return
-            }
         }
-        interaction.reply({
+
+        gServer = api.getRightServer(gServer)
+        gPuuid = await cache.getPuuidByName(gServer, gPlayerName)
+        if (gPuuid === undefined) {
+            await interaction.reply({
+                embeds: [new Discord.MessageEmbed({
+                    title: "Error",
+                    description: `The user **${gPlayerName}** does not exist in ${gServer} !`
+                })]
+            })
+            return
+        }
+        gRegion = api.getRegionFromServer(gServer)
+        console.log(`Loading ${gPlayerName}'s profile`)
+        await interaction.reply({
             embeds: [new Discord.MessageEmbed({title: `Loading ${gPlayerName}...`})]
         })
         
@@ -55,107 +63,71 @@ module.exports = {
         await this.sendUserProfile(interaction);
     },
     async sendUserProfile(interaction) {
-        const jsum = await cache.getProfileByPuuid(gPuuid)
+        const jsum = await cache.getProfileByPuuid(gServer, gPuuid)
         const jranked = await cache.getRankedEntriesByPuuid(gPuuid)
 
         const embed = new Discord.MessageEmbed({
             title: jsum.name,
             description: `Level ${jsum.summonerLevel}`,
-            thumbnail: api.getProfileIconURL(j.profileIconId)
+            thumbnail: {
+                url: cache.getProfileIconURL(jsum.profileIconId),
+            },
+            footer: {
+                text: `Refreshed ${cache.getRefreshTimeByPuuid(gPuuid)}\nTo refresh, use /refresh command`
+            }
         })
-        for (nb in jranked) {
+        for (let nb in jranked) {
+            let rank = jranked[nb]["tier"].toLowerCase()
             embed.addFields({
-                name: `Rank - ${actions.getRightQueueName(jranked[nb].queueType)}`,
-                value: `${actions.capitalizeFirstLetter(jranked[nb].tier.toLowerCase())} ${jranked[nb].rank} - ${jranked[nb].leaguePoints} LP\n${jranked[nb].wins} wins\n${jranked[nb].losses} losses\n${parseFloat(jranked[nb].wins / (jranked[nb].wins + jranked[nb].losses) * 100).toFixed(2)}% win rate`
+                name: actions.getRightQueueName(jranked[nb].queueType),
+                value: `${ranks[rank]} ${actions.capitalizeFirstLetter(rank)} ${jranked[nb].rank} - ${jranked[nb].leaguePoints} LP\n${jranked[nb].wins} wins\n${jranked[nb].losses} losses\n${parseFloat(jranked[nb].wins / (jranked[nb].wins + jranked[nb].losses) * 100).toFixed(2)}% win rate`,
+                inline: true
             })
         }
         //#endregion
 
         //#region Création boutons sous embed
-        const row = new Discord.MessageActionRow()
-            .addComponents(
-                this.getRowButtonRefresh(),
-                this.getRowButtonMasteries(),
-                this.getRowButtonMatches()
-            )
-        interaction.editReply({
+        await interaction.editReply({
             embeds: [embed],
-            components: [row]
+            components: [
+                this.createRow([
+                    this.getRowButtonMasteries(),
+                    this.getRowButtonMatches()
+                ])
+            ]
         });
 
         const collector = interaction.channel.createMessageComponentCollector()
-        collector.on('collect', (i) => {
-            
-            if (interaction.user.id === i.user.id) {
-                collector.stop()
-                switch(i.component.customId) {
-                    case this.getCustomIdRefresh():
-                        this.refreshUser(interaction)
-                        break;
-                    case this.getCustomIdMasteries():
-                        this.sendTopMasteries(interaction, jsum.id) 
-                        break;
-                    case this.getCustomIdMatches():
-                        this.sendUserMatches(interaction)
-                        break;
-                }
-                if (i.component.customId == this.getCustomIdMasteries()) {
-                } else if (i.component.customId == this.getCustomIdMatches()) {
-                }
-            } else {
-                this.sendNotRightUserError(i)
-            }
-            i.deferUpdate()
-        })
+        collector.on('collect', (i) => this.onCollect(interaction, collector, i))
     },
-    async sendTopMasteries(interaction, userId) {
+    async sendTopMasteries(interaction) {
         const topChamps = []
-        fetch(api.getChampionMasteryRequest(gServer, userId))
-        .then(res => {
-            res.json().then(json => {
-                for (i = 0; i <= 24; i++) {
-                    if (json[i] == undefined) continue
-                    topChamps.push(json[i]);
-                }
-                var reponse = "";
-                for(var champ in topChamps) {
-                    if (topChamps[champ] != topChamps[0]) reponse += `\n`;
-                    const champName = actions.getChampion(topChamps[champ].championId, 3).name
+        let reponse = "";
+        const jMastery = await cache.getMasteryByPuuid(gServer, gPuuid)
 
-                    reponse += `**${actions.findChampionEmoji(champName)} ${champName} :** ${actions.getMasteryEmote(topChamps[champ].championLevel)} ${actions.addSeparator(topChamps[champ].championPoints)} pts`
-                }
-                const embed = new Discord.MessageEmbed()
-                    .setTitle(`${gPlayerName}'s top 25 masteries`)
-                    .setDescription("Click on the mastery emote if you can't see it well.\n\n" + reponse)
+        for (let i = 0; i <= 24; i++) {
+            if (jMastery[i] === undefined) continue
+            topChamps.push(jMastery[i]);
+        }
+        for(const champ in topChamps) {
+            if (champ !== 0) reponse += `\n`;
+            const champName = actions.getChampion(topChamps[champ].championId, 3).name
 
-                const row = new Discord.MessageActionRow()
-                .addComponents(
-                    this.getRowButtonProfile(),
-                    this.getRowButtonMatches()
-                )
+            reponse += `**${actions.findChampionEmoji(champName)} ${champName} :** ${actions.getMasteryEmote(topChamps[champ].championLevel)} ${actions.addSeparator(topChamps[champ].championPoints)} pts`
+        }
+        const embed = new Discord.MessageEmbed()
+            .setTitle(`${gPlayerName}'s top 25 masteries`)
+            .setDescription("Click on the mastery emote if you can't see it well.\n\n" + reponse)
 
-                interaction.editReply({
-                    embeds: [embed],
-                    components: [row]
-                })
+        const row = this.createRow([this.getRowButtonProfile(), this.getRowButtonMatches()])
 
-                const collector = interaction.channel.createMessageComponentCollector()
-                collector.on('collect', (i) => {
-                    
-                    if (interaction.user.id === i.user.id) {
-                        collector.stop()
-                        if (i.component.customId == this.getCustomIdProfile()) {
-                            this.sendUserProfile(interaction, gPlayerName)
-                        } else if (i.component.customId == this.getCustomIdMatches()) {
-                            this.sendUserMatches(interaction)
-                        }
-                    } else {
-                        this.sendNotRightUserError(i)
-                    }
-                    i.deferUpdate()
-                })
-            })
+        await interaction.editReply({
+            embeds: [embed],
+            components: [row]
         })
+
+        const collector = interaction.channel.createMessageComponentCollector()
+        collector.on('collect', (i) => this.onCollect(interaction, collector, i))
     },
     async sendUserMatches(interaction){
         fetch(api.getSummonerRequest(gServer, gPlayerName))
@@ -163,7 +135,7 @@ module.exports = {
             r.json().then(j => {
                 fetch(api.getRecentMatchesId(gRegion, j.puuid))
                 .then(rm => {
-                    rm.json().then(jm => {
+                    rm.json().then(async jm => {
                         const embed = new Discord.MessageEmbed()
                             .setTitle(`${gPlayerName}'s last matches`)
                             .setThumbnail(api.getProfileIconURL(j.profileIconId))
@@ -182,95 +154,25 @@ module.exports = {
                             }
                             const match = cache.getSavedMatch(m)
 
-                            var participants = ""
-                            for (var p of match["info"]["participants"]) {
+                            let participants = ""
+                            for (const p of match["info"]["participants"]) {
                                 participants += actions.findChampionEmoji(p["championName"])
                             }
                             embed.addField(match["metadata"]["matchId"], participants)
                         }
 
-                        const row = new Discord.MessageActionRow()
-                            .addComponents(
-                                this.getRowButtonProfile(),
-                                this.getRowButtonMasteries()
-                            )
-                        interaction.editReply({
+                        const row = actions.createRow([this.getRowButtonProfile(), this.getRowButtonMasteries()])
+                        await interaction.editReply({
                             embeds: [embed],
                             components: [row]
                         })
 
                         const collector = interaction.channel.createMessageComponentCollector()
-                        collector.on('collect', (i) => {
-                            
-                            if (interaction.user.id === i.user.id) {
-                                collector.stop()
-                                if (i.component.customId == this.getCustomIdProfile()) {
-                                    this.sendUserProfile(interaction, gPlayerName)
-                                } else if (i.component.customId == this.getCustomIdMasteries()) {
-                                    this.sendTopMasteries(interaction, j.id)
-                                }
-                            } else {
-                                this.sendNotRightUserError(i)
-                            }
-                            i.deferUpdate()
-                        })
+                        collector.on('collect', (i) => this.onCollect(interaction, collector, i))
                     })
                 })
             })
         })
-    },
-    async refreshUser(interaction) {
-        await interaction.editReply({
-            embeds: [new Discord.MessageEmbed({
-                title: `Loading user ${gPlayerName}`,
-                description: "This may take some seconds"
-            })]
-        })
-        cache.refreshProfileByName(gServer, gPlayerName)
-    },
-    getRowButtonMasteries(){ // id : masteries
-        return new Discord.MessageButton({
-            customId: this.getCustomIdMasteries(),
-            emoji: e.m7,
-            label: 'Check masteries',
-            style: 'SECONDARY'
-        })
-    },
-    getRowButtonMatches(){ // id : matches
-        return new Discord.MessageButton({
-            customId: this.getCustomIdMatches(),
-            emoji: '🎮',
-            label: 'Check matches',
-            style: 'SECONDARY'
-        })
-    },
-    getRowButtonProfile(){ // id : profile
-        return new Discord.MessageButton({
-            customId: this.getCustomIdProfile(),
-            emoji: '🗒️',
-            label: 'Check profile',
-            style: 'SECONDARY'
-        })
-    },
-    getRowButtonRefresh(){ // id : refresh
-        return new Discord.MessageButton({
-            customId: this.getCustomIdRefresh(),
-            emoji: '🔁',
-            label: 'Refresh',
-            style: 'SECONDARY'
-        })
-    },
-    getCustomIdMasteries(){
-        return "masteries"
-    },
-    getCustomIdMatches(){
-        return "matches"
-    },
-    getCustomIdProfile(){
-        return "profile"
-    },
-    getCustomIdRefresh(){
-        return "refresh"
     },
     sendNotRightUserError(interaction){
         interaction.reply({
@@ -283,5 +185,79 @@ module.exports = {
             ],
             ephemeral: true
         })
+    },
+    /**
+     * 
+     * @param {Discord.Interaction} interaction 
+     * @param {Discord.Collector} collector
+     * @param {Discord.Interaction} i button click interaction
+     */
+    async onCollect(interaction, collector, i) {
+        if (interaction.user.id === i.user.id) {
+            collector.stop()
+            console.log(i.component.customId)
+            console.log(gId)
+            if (i.component.customId.startsWith(gId))
+            switch(i.component.label)
+            {
+                case this.getTextProfile():
+                    await this.sendUserProfile(interaction)
+                    break;
+                case this.getTextMasteries():
+                    await this.sendTopMasteries(interaction)
+                    break;
+                case this.getTextMatches():
+                    await this.sendUserMatches(interaction)
+                    break;
+            }
+        } else {
+            this.sendNotRightUserError(i)
+        }
+        if (!i.replied) i.deferUpdate()
+    },
+    getRowButtonMasteries(){ // id : masteries
+        return new Discord.MessageButton({
+            customId: gId + "masteries",
+            emoji: masteries.m7,
+            label: 'Check masteries',
+            style: 'SECONDARY'
+        })
+    },
+    getRowButtonMatches(){ // id : matches
+        return new Discord.MessageButton({
+            customId: gId + "matches",
+            emoji: '🎮',
+            label: 'Check matches',
+            style: 'SECONDARY'
+        })
+    },
+    getRowButtonProfile(){ // id : profile
+        return new Discord.MessageButton({
+            customId: gId + "profile",
+            emoji: '🗒️',
+            label: 'Check profile',
+            style: 'SECONDARY'
+        })
+    },
+    getTextMasteries(){
+        return "Check masteries"
+    },
+    getTextMatches(){
+        return "Check matches"
+    },
+    getTextProfile(){
+        return "Check profile"
+    },
+    /**
+    * 
+    * @param list list of buttons to put in row
+    * @returns {Discord.MessageActionRow}
+    */
+    createRow(list) {
+        const row = new Discord.MessageActionRow()
+        for (const button of list) {
+            row.addComponents(button)
+        }
+        return row
     }
 }
