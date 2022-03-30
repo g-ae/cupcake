@@ -12,8 +12,7 @@ module.exports = {
      * @returns {Boolean} true if exists, false if not
      */
     isMatchSaved(matchId) {
-        if (fs.existsSync(path.resolve(`./data/matchs/`, `${matchId}.json`))) return true
-        return false
+        return fs.existsSync(path.resolve(`./data/matchs/`, `${matchId}.json`));
     },
     saveMatch(json, matchId) {
         if (!fs.existsSync("./data/matchs/")) fs.mkdirSync("./data/matchs")
@@ -23,10 +22,11 @@ module.exports = {
         fs.writeFileSync(path.resolve(`./data/matchs/`, `${matchId}.json`), JSON.stringify(json))
     },
     getSavedMatch(matchId) {
-        if (this.isMatchSaved(matchId)) {
-            return require(`./data/matchs/${matchId}.json`)
-        }
+        if (this.isMatchSaved(matchId)) return require(`./data/matchs/${matchId}.json`)
         return undefined
+    },
+    async getLastMatchesByPuuid(puuid) {
+        if (this.isProfileSavedByPuuid(puuid)) return require(`./data/profiles/${puuid}/matches.json`)
     },
     //#endregion
     //#region profile by puuid
@@ -48,8 +48,7 @@ module.exports = {
      * @returns {Boolean} true if exists, false if not
      */
     isProfileSavedByPuuid(puuid) {
-        if (fs.existsSync(`./data/profiles/${puuid}/`)) return true
-        return false
+        return fs.existsSync(`./data/profiles/${puuid}/`);
     },
     /**
      * Checks if a profile is already saved (by name)
@@ -57,7 +56,7 @@ module.exports = {
      * @returns {Boolean} true if exists, false if not
      */
     isProfileSavedByName(name) {
-        for(var user of fs.readdirSync(`./data/profiles/`)) {
+        for(const user of fs.readdirSync(`./data/profiles/`)) {
             if (fs.readdirSync(`./data/profiles/${user}/`).includes(`${name}.json`)) return true
         }
         return false
@@ -73,9 +72,9 @@ module.exports = {
         
         if (!this.isProfileSavedByPuuid(puuid)) {
             const r = await fetch(api.getSummonerRequestByPuuid(server, puuid))
-            if (r.status != 200) return undefined
+            if (parseInt(r.status) !== 200) return undefined
             const jSummoner = await (r).json()
-            var name = jSummoner["name"]
+            const name = jSummoner["name"]
             fs.mkdirSync(`./data/profiles/${puuid}/`)
             fs.writeFileSync(`./data/profiles/${puuid}/${name}.json`, JSON.stringify(jSummoner))
             console.log(`Saved user "${name}" of server "${server}"`)
@@ -90,10 +89,9 @@ module.exports = {
             fs.writeFileSync(`./data/profiles/${puuid}/matches.json`, JSON.stringify(jMatches))
 
             const time = new Date()
-            const jTime = {
+            fs.writeFileSync(`./data/profiles/${puuid}/creationTime.json`, JSON.stringify({
                 "time": time.getTime()
-            }
-            fs.writeFileSync(`./data/profiles/${puuid}/creationTime.json`, JSON.stringify(jTime))
+            }))
             return jSummoner
         }
         return undefined
@@ -101,16 +99,14 @@ module.exports = {
     getRefreshTimeInSeconds(puuid) {
         const epochCreated = this.getRefreshTimeEpochByPuuid(puuid)
 
-        var seconds = Math.floor((new Date() - epochCreated) / 1000);
-
-        return seconds;
+        return Math.floor((new Date() - epochCreated) / 1000)
     },
     getRefreshTimeByPuuid(puuid) {
         const epochCreated = this.getRefreshTimeEpochByPuuid(puuid)
 
-        var seconds = Math.floor((new Date() - epochCreated) / 1000);
+        const seconds = Math.floor((new Date() - epochCreated) / 1000);
         
-        var interval = seconds / 31536000;
+        let interval = seconds / 31536000;
         
         if (interval > 1) {
             return Math.floor(interval) + ` year${actions.pluralOrNot(Math.floor(interval))} ago`;
@@ -131,7 +127,7 @@ module.exports = {
         if (interval > 1) {
             return Math.floor(interval) + ` minute${actions.pluralOrNot(Math.floor(interval))} ago`;
         }
-        if (interval == 0) {
+        if (interval === 0) {
             return "just now"
         }
         return Math.floor(seconds) + ` second${actions.pluralOrNot(Math.floor(interval))} ago`;
@@ -155,7 +151,7 @@ module.exports = {
         await this.refreshProfileByPuuid(server, await this.getPuuidByName(server, name))
     },
     /**
-     * Get an user's puuid by their name
+     * Get a user's puuid by their name
      * @param {String} server 
      * @param {String} name 
      * @returns User's PUUID, or undefined if user doesn't exist
@@ -164,9 +160,9 @@ module.exports = {
         this.checkFolderExistsProfile();
 
         if (this.isProfileSavedByName(name)) {
-            for (var user of fs.readdirSync(`./data/profiles/`)) {
-                for (var file of fs.readdirSync(`./data/profiles/${user}/`)) {
-                    if (file == `${name}.json`) {
+            for (let user of fs.readdirSync(`./data/profiles/`)) {
+                for (let file of fs.readdirSync(`./data/profiles/${user}/`)) {
+                    if (file === `${name}.json`) {
                         return actions.getDataFromJSON(`./data/profiles/${user}/${file}`)["puuid"]
                     }
                 }
@@ -177,17 +173,17 @@ module.exports = {
         const sum = await (await fetch(api.getSummonerRequestByName(server, name))).json()
         const saved = await this.saveProfile(server, sum["puuid"])
 
-        if (saved == undefined) return undefined
+        if (saved === undefined) return undefined
         return sum["puuid"]
     },
     async getProfileByPuuid(server, puuid) {
         if (this.isProfileSavedByPuuid(puuid)) {
-            if (!this.checkAllFilesOk(server, puuid)) {
+            if (!await this.checkAllFilesOk(server, puuid)) {
                 await this.saveProfile(server, puuid)
             }
             try {
-                for (var file of fs.readdirSync(`./data/profiles/${puuid}/`)) {
-                    if (file != "creationTime.json" && file != "mastery.json" && file != "matches.json" && file != "ranked.json") return actions.getDataFromJSON(`./data/profiles/${puuid}/${file}`)
+                for (const file of fs.readdirSync(`./data/profiles/${puuid}/`)) {
+                    if (file !== "creationTime.json" && file !== "mastery.json" && file !== "matches.json" && file !== "ranked.json") return actions.getDataFromJSON(`./data/profiles/${puuid}/${file}`)
                 }
             } catch(err) {
                 console.log("Doesn't exist for some reason")
@@ -197,7 +193,7 @@ module.exports = {
     },
     async checkAllFilesOk(server, puuid) {
         if (this.isProfileSavedByPuuid(puuid)) {
-            if (fs.readdirSync(`./data/profiles/${puuid}/`).length == 5) return true
+            if (fs.readdirSync(`./data/profiles/${puuid}/`).length === 5) return true
         }
         await this.refreshProfileByPuuid(server, puuid)
         return await this.checkAllFilesOk(server, puuid)
@@ -209,6 +205,11 @@ module.exports = {
     },
     //#endregion
     //#region setup
+    /**
+     *
+     * @param {Function} callback
+     * @returns {Promise<void>}
+     */
     async setup(callback) {
         try {
             await this.fetchDDragonVersion(() => {
@@ -227,17 +228,16 @@ module.exports = {
         fetch('https://ddragon.leagueoflegends.com/api/versions.json')
         .then(r => {
             r.json().then(j => {
-                var json = {
-                    "DDragon": j[0]
-                };
                 if (!fs.existsSync('./data/')) fs.mkdirSync('./data/')
-                fs.writeFileSync(path.resolve(`./data/`, `versionApi.json`), JSON.stringify(json))
+                fs.writeFileSync(path.resolve(`./data/`, `versionApi.json`), JSON.stringify({
+                    "DDragon": j[0]
+                }))
                 callback()
             })
         })
     },
     setupAllChamps(callback){
-        fetch(`http://ddragon.leagueoflegends.com/cdn/${this.getDDragonVersion()}/data/en_US/champion.json`)
+        fetch(`https://ddragon.leagueoflegends.com/cdn/${this.getDDragonVersion()}/data/en_US/champion.json`)
         // ne contient pas toutes les infos : pour plus de détails prendre /champion/"Aatrox".json
         .then(r => {
             r.json().then(j => {
@@ -250,7 +250,7 @@ module.exports = {
     
     //#region other
     getProfileIconURL(id){
-        return `http://ddragon.leagueoflegends.com/cdn/${this.getDDragonVersion()}/img/profileicon/${id}.png`
+        return `https://ddragon.leagueoflegends.com/cdn/${this.getDDragonVersion()}/img/profileicon/${id}.png`
     }
     //#endregion
 }

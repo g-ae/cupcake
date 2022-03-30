@@ -1,15 +1,16 @@
 const api = require('../callAPI.js')
 const cache = require("../cache")
+const Discord = require('discord.js')
 
 module.exports = {
     name: "refresh",
     description: "",
     args: ["region", "name"],
     async execute(interaction, args) {
-        var playerName = ""
-        var server = ""
-        var region = ""
-        var puuid = ""
+        let playerName = ""
+        let server = ""
+        let region = ""
+        let puuid = ""
         for(const i in args) {
             if (i === "0") server = args[i]
             else {
@@ -45,6 +46,18 @@ module.exports = {
             embeds: [new Discord.MessageEmbed({title: `Refreshing ${playerName}...`})]
         })
 
-        await cache.refreshProfileByPuuid()
+        await cache.refreshProfileByPuuid(server, puuid)
+
+        if (interaction.replied) {
+            await interaction.editReply({
+                embeds: [
+                    new Discord.MessageEmbed({
+                        title: 'Refresh',
+                        description: `The refresh has been completed.\n${playerName}'s data is now up to date.`,
+                        color: 0x00FF00 // green
+                    })
+                ]
+            })
+        }
     }
 }

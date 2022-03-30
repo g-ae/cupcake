@@ -1,6 +1,5 @@
 const Discord = require("discord.js");
 const fs = require('fs');
-const { exit } = require("process");
 const cache = require('./cache')
 const client = new Discord.Client({
     intents: [
@@ -26,7 +25,7 @@ client.on('interactionCreate', async interaction => {
 
         if (!client.commands.has(commandName)) return;
         try {
-            var options = []
+            let options = []
             for (let arg of client.commands.get(commandName).args) options.push(interaction.options.get(arg).value)
             await client.commands.get(commandName).execute(interaction, options);
         } catch(error) {
@@ -34,11 +33,11 @@ client.on('interactionCreate', async interaction => {
                 .setTitle('An error has occured, contact an admin')
                 .setColor(0xff0000)
 
-            if (!interaction.replied) interaction.reply({ embeds: [ embedError ] })
-            else interaction.editReply({ embeds: [ embedError ] })
+            if (!interaction.replied) await interaction.reply({ embeds: [ embedError ] })
+            else await interaction.editReply({ embeds: [ embedError ] })
         }
     } else if (interaction.isButton()) {
-        console.log(interaction.customId)
+        console.log("button pressed")
     }
 })
 
@@ -48,7 +47,7 @@ cache.setup(() => {
         try{
             const command = require(`./cmds/${file}`);
             client.commands.set(command.name, command);
-            for(alias in command.alias) {
+            for(const alias in command.alias) {
                 client.commands.set(command.alias[alias], command);
             }
             console.log(`CMD => ${file} success`.green);

@@ -1,8 +1,5 @@
 require('dotenv').config();
-
 const serverlist = [ "eun1", "euw1", "ru", "tr1", "jp1", "kr", "la1", "la2", "na1", "br1", "oc1" ]
-const serverlist2 = [ "americas", "asia", "europe" ]
-
 const APIkey = "api_key=" + process.env.API_KEY;
 
 module.exports = {
@@ -15,8 +12,7 @@ module.exports = {
      * @returns {Boolean} true if server OK, false if not
      */
     verifyServer(server) {
-        if (serverlist.includes(server)) return true
-        else return false
+        return serverlist.includes(server);
     },
     /**
      * Looks for the right server.
@@ -26,14 +22,14 @@ module.exports = {
     getRightServer(server) {
         if (serverlist.includes(server)) return server
 
-        for(var srv in serverlist) {
-            if (server == srv.slice(0, srv.length - 2)) return server + "1"
+        for(const srv in serverlist) {
+            if (server === srv.slice(0, srv.length - 2)) return server + "1"
         }
 
         return undefined
     },
     getRegionFromServer(server){
-        if (server == undefined) return undefined
+        if (server === undefined) return undefined
         switch(server) {
             case "br1":
             case "la1":
@@ -64,7 +60,7 @@ module.exports = {
         return `https://${server}.api.riotgames.com/lol/league/v4/entries/by-summoner/${encryptedSummonerId}?${APIkey}`;
     },
     /**
-     * Gets an user's recent matches (only ids)
+     * Gets a user's recent matches (only ids)
      * @param {String} region User's region
      * @param {String} puuid User's puuid
      * @param {Integer} count count of matches to return (defaults to 15)

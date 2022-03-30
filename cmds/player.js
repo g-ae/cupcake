@@ -5,23 +5,25 @@ const actions = require("../actions.js")
 const masteries = require("../emojis/masteries.json")
 const ranks = require('../emojis/ranks.json')
 const cache = require("../cache")
-const { 
-    v1: uuidv1
-    //,
-    //v4: uuidv4,
-} = require('uuid');
-var gPlayerName = ""
-var gServer = ""
-var gRegion = ""
-var gPuuid = ""
-var gId = ""
+let gPlayerName = ""
+let gServer = ""
+let gRegion = ""
+let gPuuid = ""
+
+/*
+dans chaque bouton, le customId continet le puuid de l'utilisateur pour éviter le problème:
+- si je lance la commande pour l'utilisateur "xdfigados" et je lance une autre commande pour l'utilisateur "xdwejdene",
+  quand je clique sur un bouton, les deux commandes vont changer
+  évidemment ce que j'ai essayé ne marche pas et c'est pour ça que j'ai abandonné 👍
+
++ je ne sais plus pourquoi j'ai fait la commande refresh mdrr
+ */
 
 module.exports = {
     name: "player",
     description: "",
     args: ["region", "name"],
     async execute(interaction, args) {
-        gId = uuidv1();
         gPlayerName = ""
         for(const i in args) {
             if (i === "0") gServer = args[i]
@@ -68,9 +70,9 @@ module.exports = {
 
         const embed = new Discord.MessageEmbed({
             title: jsum.name,
-            description: `Level ${jsum.summonerLevel}`,
+            description: `Level ${jsum["summonerLevel"]}`,
             thumbnail: {
-                url: cache.getProfileIconURL(jsum.profileIconId),
+                url: cache.getProfileIconURL(jsum["profileIconId"]),
             },
             footer: {
                 text: `Refreshed ${cache.getRefreshTimeByPuuid(gPuuid)}\nTo refresh, use /refresh command`
@@ -79,8 +81,8 @@ module.exports = {
         for (let nb in jranked) {
             let rank = jranked[nb]["tier"].toLowerCase()
             embed.addFields({
-                name: actions.getRightQueueName(jranked[nb].queueType),
-                value: `${ranks[rank]} ${actions.capitalizeFirstLetter(rank)} ${jranked[nb].rank} - ${jranked[nb].leaguePoints} LP\n${jranked[nb].wins} wins\n${jranked[nb].losses} losses\n${parseFloat(jranked[nb].wins / (jranked[nb].wins + jranked[nb].losses) * 100).toFixed(2)}% win rate`,
+                name: actions.getRightQueueName(jranked[nb]["queueType"]),
+                value: `${ranks[rank]} ${actions.capitalizeFirstLetter(rank)} ${jranked[nb]["rank"]} - ${jranked[nb]["leaguePoints"]} LP\n${jranked[nb]["wins"]} wins\n${jranked[nb]["losses"]} losses\n${parseFloat((parseInt(jranked[nb]["wins"]) / (parseInt(jranked[nb]["wins"]) + parseInt(jranked[nb]["losses"])) * 100).toString()).toFixed(2)}% win rate`,
                 inline: true
             })
         }
@@ -111,9 +113,9 @@ module.exports = {
         }
         for(const champ in topChamps) {
             if (champ !== 0) reponse += `\n`;
-            const champName = actions.getChampion(topChamps[champ].championId, 3).name
+            const champName = actions.getChampion(topChamps[champ]["championId"], 3).name
 
-            reponse += `**${actions.findChampionEmoji(champName)} ${champName} :** ${actions.getMasteryEmote(topChamps[champ].championLevel)} ${actions.addSeparator(topChamps[champ].championPoints)} pts`
+            reponse += `**${actions.findChampionEmoji(champName)} ${champName} :** ${actions.getMasteryEmote(topChamps[champ]["championLevel"])} ${actions.addSeparator(topChamps[champ]["championPoints"])} pts`
         }
         const embed = new Discord.MessageEmbed()
             .setTitle(`${gPlayerName}'s top 25 masteries`)
@@ -130,49 +132,40 @@ module.exports = {
         collector.on('collect', (i) => this.onCollect(interaction, collector, i))
     },
     async sendUserMatches(interaction){
-        fetch(api.getSummonerRequest(gServer, gPlayerName))
-        .then(r => {
-            r.json().then(j => {
-                fetch(api.getRecentMatchesId(gRegion, j.puuid))
-                .then(rm => {
-                    rm.json().then(async jm => {
-                        const embed = new Discord.MessageEmbed()
-                            .setTitle(`${gPlayerName}'s last matches`)
-                            .setThumbnail(api.getProfileIconURL(j.profileIconId))
+        const sum = await cache.getProfileByPuuid(gServer, gPuuid)
+        const matches = await cache.getLastMatchesByPuuid(gPuuid)
 
-                        for (m of jm) {
-                            if (!cache.isMatchSaved(m)) {
-                                fetch(api.getMatchDetails(gRegion, m)).then(r => {
-                                    if (r.status != 200) {
-                                        console.log(`${r.status} - ${r.statusText}`)
-                                    } else {
-                                        r.json().then(j => {
-                                            cache.saveMatch(j, j["metadata"]["matchId"])
-                                        })
-                                    }
-                                })
-                            }
-                            const match = cache.getSavedMatch(m)
+        const embed = new Discord.MessageEmbed()
+            .setTitle(`${sum["name"]}'s last matches`)
+            .setThumbnail(cache.getProfileIconURL(sum["profileIconId"]))
 
-                            let participants = ""
-                            for (const p of match["info"]["participants"]) {
-                                participants += actions.findChampionEmoji(p["championName"])
-                            }
-                            embed.addField(match["metadata"]["matchId"], participants)
-                        }
+        for (const m of matches) {
+            if (!cache.isMatchSaved(m)) {
+                const r = await fetch(api.getMatchDetails(gRegion, m))
+                if (parseInt(r.status) !== 200) {
+                    console.log(`${r.status} - ${r.statusText} when saving match ${m}`)
+                } else {
+                    const j = await r.json()
+                    cache.saveMatch(j, j["metadata"]["matchId"])
+                }
+            }
+            const match = cache.getSavedMatch(m)
 
-                        const row = actions.createRow([this.getRowButtonProfile(), this.getRowButtonMasteries()])
-                        await interaction.editReply({
-                            embeds: [embed],
-                            components: [row]
-                        })
+            let participants = ""
+            for (const p of match["info"]["participants"]) {
+                participants += actions.findChampionEmoji(p["championName"])
+            }
+            embed.addField(match["metadata"]["matchId"], participants)
+        }
 
-                        const collector = interaction.channel.createMessageComponentCollector()
-                        collector.on('collect', (i) => this.onCollect(interaction, collector, i))
-                    })
-                })
-            })
+        const row = this.createRow([this.getRowButtonProfile(), this.getRowButtonMasteries()])
+        await interaction.editReply({
+            embeds: [embed],
+            components: [row]
         })
+
+        const collector = interaction.channel.createMessageComponentCollector()
+        collector.on('collect', (i) => this.onCollect(interaction, collector, i))
     },
     sendNotRightUserError(interaction){
         interaction.reply({
@@ -196,8 +189,7 @@ module.exports = {
         if (interaction.user.id === i.user.id) {
             collector.stop()
             console.log(i.component.customId)
-            console.log(gId)
-            if (i.component.customId.startsWith(gId))
+            if (i.component.customId.endsWith(gPuuid))
             switch(i.component.label)
             {
                 case this.getTextProfile():
@@ -213,11 +205,11 @@ module.exports = {
         } else {
             this.sendNotRightUserError(i)
         }
-        if (!i.replied) i.deferUpdate()
+        if (!i.replied) await i.deferUpdate()
     },
     getRowButtonMasteries(){ // id : masteries
         return new Discord.MessageButton({
-            customId: gId + "masteries",
+            customId: "masteries" + gPuuid,
             emoji: masteries.m7,
             label: 'Check masteries',
             style: 'SECONDARY'
@@ -225,7 +217,7 @@ module.exports = {
     },
     getRowButtonMatches(){ // id : matches
         return new Discord.MessageButton({
-            customId: gId + "matches",
+            customId: "matches" + gPuuid,
             emoji: '🎮',
             label: 'Check matches',
             style: 'SECONDARY'
@@ -233,7 +225,7 @@ module.exports = {
     },
     getRowButtonProfile(){ // id : profile
         return new Discord.MessageButton({
-            customId: gId + "profile",
+            customId: "profile" + gPuuid,
             emoji: '🗒️',
             label: 'Check profile',
             style: 'SECONDARY'
