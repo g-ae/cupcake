@@ -45,6 +45,8 @@ module.exports = {
             case "ru":
             case "tr1":
                 return "europe"
+            default:
+                return undefined
         }
     },
     getSummonerRequestByName(server, name){

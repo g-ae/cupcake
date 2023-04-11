@@ -1,6 +1,7 @@
 const Discord = require("discord.js");
 const fs = require('fs');
-const cache = require('./cache')
+const path = require('path')
+var cache;
 const client = new Discord.Client({
     intents: [
         Discord.Intents.FLAGS.GUILDS, 
@@ -16,7 +17,7 @@ require("dotenv").config();
 const commandFiles = fs.readdirSync('./cmds/').filter(file => file.endsWith('.js'));
 
 client.on('ready', () => {
-    console.log('\nBOT => connected'.green);
+    console.log('BOT => connected'.green);
 });
 
 client.on('interactionCreate', async interaction => {
@@ -29,6 +30,8 @@ client.on('interactionCreate', async interaction => {
             for (let arg of client.commands.get(commandName).args) options.push(interaction.options.get(arg).value)
             await client.commands.get(commandName).execute(interaction, options);
         } catch(error) {
+            console.log("Erreur : ".red)
+            console.log(error)
             const embedError = new Discord.MessageEmbed()
                 .setTitle('An error has occured, contact an admin')
                 .setColor(0xff0000)
@@ -41,8 +44,15 @@ client.on('interactionCreate', async interaction => {
     }
 })
 
-cache.setup(() => {
-    // setting all commands in the command collection
+async function setup() {
+    if (!fs.existsSync('./data/') || !fs.existsSync('./data/champions.json')) {
+        await fs.promises.mkdir('./data/')
+        await fs.promises.writeFile(path.resolve(`./data/`, `champions.json`), JSON.stringify({
+            "data": {}
+        }))
+    }
+    cache = require('./cache');
+    await cache.setup();
     for (const file of commandFiles){
         try{
             const command = require(`./cmds/${file}`);
@@ -50,11 +60,11 @@ cache.setup(() => {
             for(const alias in command.alias) {
                 client.commands.set(command.alias[alias], command);
             }
-            console.log(`CMD => ${file} success`.green);
         } catch(error) {
-            console.log(`ERR => ${file} error`.red + "\ERR:\n" + error);
+            console.log(`ERROR: ${file} error :`.red + error);
         }
     }
-})
+}
 
+setup();
 client.login(process.env.TOKEN);

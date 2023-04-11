@@ -207,44 +207,32 @@ module.exports = {
     //#region setup
     /**
      *
-     * @param {Function} callback
      * @returns {Promise<void>}
      */
-    async setup(callback) {
+    async setup() {
         try {
-            await this.fetchDDragonVersion(() => {
-                this.setupAllChamps(() => {
-                    callback()
-                })
-            })
+            await this.fetchDDragonVersion()
+            await this.setupAllChamps();
         } catch(err) {
-            console.log("You are not connected to the internet.")
+            console.log("An error occured :\n" + err)
         }
     },
     getDDragonVersion() {
         return actions.getDataFromJSON('./data/versionApi.json').DDragon
     },
-    fetchDDragonVersion(callback){
-        fetch('https://ddragon.leagueoflegends.com/api/versions.json')
-        .then(r => {
-            r.json().then(j => {
-                if (!fs.existsSync('./data/')) fs.mkdirSync('./data/')
-                fs.writeFileSync(path.resolve(`./data/`, `versionApi.json`), JSON.stringify({
-                    "DDragon": j[0]
-                }))
-                callback()
-            })
-        })
+    async fetchDDragonVersion(){
+        const data = await( await fetch('https://ddragon.leagueoflegends.com/api/versions.json')).json()
+
+        if (!fs.existsSync('./data/')) fs.mkdirSync('./data/')
+        await fs.promises.writeFile(path.resolve(`./data/`, `versionApi.json`), JSON.stringify({
+            "DDragon": data[0]
+        }))
     },
-    setupAllChamps(callback){
-        fetch(`https://ddragon.leagueoflegends.com/cdn/${this.getDDragonVersion()}/data/en_US/champion.json`)
+    async setupAllChamps(){
+        const data = await (await fetch(`https://ddragon.leagueoflegends.com/cdn/${this.getDDragonVersion()}/data/en_US/champion.json`)).json()
         // ne contient pas toutes les infos : pour plus de détails prendre /champion/"Aatrox".json
-        .then(r => {
-            r.json().then(j => {
-                fs.writeFileSync(path.resolve(`./data/`, `champions.json`), JSON.stringify(j))
-                callback()
-            })
-        })
+        
+        await fs.promises.writeFile(path.resolve(`./data/`, `champions.json`), JSON.stringify(data))
     },
     //#endregion
     

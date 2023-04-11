@@ -60,16 +60,17 @@ module.exports = {
      * * if it's a key : 3  (62)
      */
     getChampion(idKeyOrName, isId = 1) {
-        if (isId == 1) {
-            // if looking for ID
-            return this.getChampionFromId(idKeyOrName);
-        } else if (isId == 2) {
-            // if looking for name
-            return this.getChampionFromName(idKeyOrName);
-        } else if (isId == 3) {
-            return this.getChampionFromKey(idKeyOrName)
-        } else {
-            throw new Error("actions.js ERROR: getChampion\nisId parameter wrongly used.")
+        switch(isId) {
+            case 1:
+                // if looking for ID (default)
+                return this.getChampionFromId(idKeyOrName);
+            case 2:
+                // if looking for name
+                return this.getChampionFromName(idKeyOrName);
+            case 3:
+                return this.getChampionFromKey(idKeyOrName)
+            default:
+                throw new Error("actions.js ERROR: getChampion\nisId parameter wrongly used.")
         }
     },
     getChampionFromId(id) {
@@ -126,7 +127,7 @@ module.exports = {
         } else {
             // if not in emojis
             for (var k in champEmojis) {
-                if (k == "m4" || k == "m5" || k == "m6" || k == "m7") continue // mastery emojis not used
+                if (["m4", "m5", "m6", "m7"].includes(k)) continue // mastery emojis not used
                 if (k.includes(query)) {
                     champs.push(k)
                 }
@@ -145,7 +146,8 @@ module.exports = {
     getClosestMatchChampionName(name) {
         var bestmatchname = ""
         var bestmatchvalue = 10
-        for (var champ in champEmojis) {
+        for (var champ of champs) {
+            console.log(champ)
             var l = levenshtein(name, champ)
             if (bestmatchvalue > l) {
                 bestmatchvalue = l

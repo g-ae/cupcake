@@ -49,9 +49,8 @@ module.exports = {
             var manaInfo = ""
 
             // MANA
-            if (champInfo.stats.mp == 0) {
-                manaInfo = `${champInfo.partype} isn't usable`
-            } else {
+            if (champInfo.stats.mp == 0) manaInfo = `${champInfo.partype} isn't usable`
+            else {
                 var manaRegen = ""
                 var manaPerLevel = ""
 
@@ -72,7 +71,7 @@ module.exports = {
             }
 
             // END RESULT
-            embed.setTitle(`${result[0]} ${champInfo.name}, ${champInfo.title}`)
+            embed.setTitle(`${champInfo.name}, ${champInfo.title}`)
                 .setThumbnail(api.getChampionSquareIcon(champInfo.key))
                 .setDescription(champInfo.tags.toString().replace(',',', '))
                 .addFields(
