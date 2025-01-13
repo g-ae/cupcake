@@ -96,11 +96,12 @@ module.exports = {
     apiKeyError(interaction) {
         const e = new Discord.MessageEmbed({
             title: "Error",
-            description: "The API key has an error. Contact an admin.",
+            description: "An error has occurred",
             color: 0xFF0000
         })
         if (!interaction.replied) interaction.reply({ embeds: [ e ] })
-        interaction.editReply({ embeds: [ e ] })
+        else interaction.editReply({ embeds: [ e ] })
+        console.error("ERROR - API KEY IS NOT USABLE".red)
     },
     getRightQueueName(data) {
         switch(data){
@@ -123,7 +124,6 @@ module.exports = {
         var champs = []
         if (champEmojis.hasOwnProperty(query)) {
             champs.push(champEmojis[query])
-            return champs
         } else {
             // if not in emojis
             for (var k in champEmojis) {
@@ -135,8 +135,8 @@ module.exports = {
             if (champs.length == 1) {
                 return this.findChampionEmoji(champs[0])
             }
-            return champs
         }
+        return champs
     },
     /**
      * Uses the Levenshtein's algorithm to compare two names

@@ -1,7 +1,6 @@
 const Discord = require("discord.js");
 const fs = require('fs');
 const path = require('path')
-var cache;
 const client = new Discord.Client({
     intents: [
         Discord.Intents.FLAGS.GUILDS, 
@@ -16,24 +15,31 @@ require("dotenv").config();
 // looking for all commands on ./cmds/
 const commandFiles = fs.readdirSync('./cmds/').filter(file => file.endsWith('.js'));
 
+// BOT Ready
 client.on('ready', () => {
     console.log('BOT => connected'.green);
 });
 
+// On interaction create
 client.on('interactionCreate', async interaction => {
+    // If the interaction is a command
     if (interaction.isCommand()) {
         const { commandName } = interaction;
 
+        // if the command doesn't exist, return nothing
         if (!client.commands.has(commandName)) return;
         try {
+            // get all args
             let options = []
             for (let arg of client.commands.get(commandName).args) options.push(interaction.options.get(arg).value)
+            // Exec command with args (options)
             await client.commands.get(commandName).execute(interaction, options);
         } catch(error) {
+            // On error, log to console, ask user to try again later with discord message
             console.log("Erreur : ".red)
             console.log(error)
             const embedError = new Discord.MessageEmbed()
-                .setTitle('An error has occured, contact an admin')
+                .setTitle('An error has occured, please try again later')
                 .setColor(0xff0000)
 
             if (!interaction.replied) await interaction.reply({ embeds: [ embedError ] })
@@ -51,8 +57,7 @@ async function setup() {
             "data": {}
         }))
     }
-    cache = require('./cache');
-    await cache.setup();
+    await require('./cache').setup();
     for (const file of commandFiles){
         try{
             const command = require(`./cmds/${file}`);

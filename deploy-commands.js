@@ -5,7 +5,7 @@ require("dotenv").config()
 
 const playerName = new SlashCommandStringOption()
     .setName("name")
-    .setDescription('Name of the player to check')
+    .setDescription('Username + Tagline (USER#9999)')
     .setRequired(true);
 
 const region = new SlashCommandStringOption()

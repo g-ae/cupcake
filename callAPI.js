@@ -1,9 +1,9 @@
 require('dotenv').config();
-const serverlist = [ "eun1", "euw1", "ru", "tr1", "jp1", "kr", "la1", "la2", "na1", "br1", "oc1" ]
+const serverlist = ["eun1", "euw1", "ru", "tr1", "jp1", "kr", "la1", "la2", "na1", "br1", "oc1"]
 const APIkey = "api_key=" + process.env.API_KEY;
 
 module.exports = {
-    getServers(){
+    getServers() {
         return serverlist.join('\n')
     },
     /**
@@ -22,15 +22,15 @@ module.exports = {
     getRightServer(server) {
         if (serverlist.includes(server)) return server
 
-        for(const srv in serverlist) {
-            if (server === srv.slice(0, srv.length - 2)) return server + "1"
+        for (const srv of serverlist) {
+            if (server === srv.slice(0, srv.length - 1)) return server + "1"
         }
 
         return undefined
     },
-    getRegionFromServer(server){
+    getRegionFromServer(server) {
         if (server === undefined) return undefined
-        switch(server) {
+        switch (server) {
             case "br1":
             case "la1":
             case "la2":
@@ -49,14 +49,25 @@ module.exports = {
                 return undefined
         }
     },
-    getSummonerRequestByName(server, name){
-        return `https://${server}.api.riotgames.com/lol/summoner/v4/summoners/by-name/${name}?${APIkey}`;
+    /**
+     * Get Summoner Profile from Riot ID
+     * @param {String} region Get region from server with getRegionFromServer()
+     * @param {String} rid User's Riot ID
+     * @returns 
+     */
+    getSummonerRequestByRID(region, rid) {
+        let ri = rid.split('#')
+        if (ri.length != 2) console.error("ERROR - getSummonerRequestByRID -", region, rid)
+        return `https://${region}.api.riotgames.com/riot/account/v1/accounts/by-riot-id/${ri[0]}/${ri[1]}?${APIkey}`;
+    },
+    getAccountInfoByPuuid(region, puuid) {
+        return `https://${region}.api.riotgames.com/riot/account/v1/accounts/by-puuid/${puuid}?${APIkey}`
     },
     getSummonerRequestByPuuid(server, puuid) {
         return `https://${server}.api.riotgames.com/lol/summoner/v4/summoners/by-puuid/${puuid}?${APIkey}`
     },
-    getChampionMasteryRequest(server, summonerId){
-        return `https://${server}.api.riotgames.com/lol/champion-mastery/v4/champion-masteries/by-summoner/${summonerId}?${APIkey}`;
+    getChampionMasteryRequestByPuuid(server, puuid) {
+        return `https://${server}.api.riotgames.com/lol/champion-mastery/v4/champion-masteries/by-puuid/${puuid}?${APIkey}`;
     },
     getRankedEntries(server, encryptedSummonerId) {
         return `https://${server}.api.riotgames.com/lol/league/v4/entries/by-summoner/${encryptedSummonerId}?${APIkey}`;
@@ -65,7 +76,7 @@ module.exports = {
      * Gets a user's recent matches (only ids)
      * @param {String} region User's region
      * @param {String} puuid User's puuid
-     * @param {Integer} count count of matches to return (defaults to 15)
+     * @param {Integer} count count of matches to return (defaults to 4)
      */
     getRecentMatchesId(region, puuid, count = 4) {
         return `https://${region}.api.riotgames.com/lol/match/v5/matches/by-puuid/${puuid}/ids?start=0&count=${count}&${APIkey}`

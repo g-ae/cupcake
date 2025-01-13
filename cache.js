@@ -7,7 +7,7 @@ const actions = require('./actions')
 module.exports = {
     //#region match
     /**
-     * 
+     * Is the match saved
      * @param {String} matchId id of the match to check
      * @returns {Boolean} true if exists, false if not
      */
@@ -32,11 +32,16 @@ module.exports = {
     //#region profile by puuid
     /* profiles are saved under ./data/profiles/ in a folder with their puuid and username as json name, example:
     PUUID (Folder)
-        NAME.json (summoner)
+        NAME#TAG.json (summoner)
         mastery.json
         matches.json
         ranked.json
         creationTime.json
+    */
+   /**
+    * Checks if the /data/profiles folders exist.
+    * If not, creates them
+    * @returns {null}
     */
     checkFolderExistsProfile() {
         if (!fs.existsSync("./data/")) fs.mkdirSync("./data/")
@@ -62,10 +67,10 @@ module.exports = {
         return false
     },
     /**
-     * 
-     * @param {String} server
-     * @param {String} puuid 
-     * @returns profile in json
+     * Saves the user's profile in local data JSON
+     * @param {String} server user's server (ex: euw1)
+     * @param {String} puuid user's account's puuid
+     * @returns profile in json or undefined if wrong
      */
     async saveProfile(server, puuid) {
         this.checkFolderExistsProfile();
@@ -74,16 +79,32 @@ module.exports = {
             const r = await fetch(api.getSummonerRequestByPuuid(server, puuid))
             if (parseInt(r.status) !== 200) return undefined
             const jSummoner = await (r).json()
-            const name = jSummoner["name"]
+            const jRiotAcc = await (await fetch(api.getAccountInfoByPuuid(api.getRegionFromServer(server), puuid))).json()
+            const name = jRiotAcc["gameName"] + "#" + jRiotAcc["tagLine"]
             fs.mkdirSync(`./data/profiles/${puuid}/`)
-            fs.writeFileSync(`./data/profiles/${puuid}/${name}.json`, JSON.stringify(jSummoner))
+            fs.writeFileSync(`./data/profiles/${puuid}/${name}.json`, JSON.stringify({
+                id: jSummoner["id"],
+                accountId: jSummoner["accountId"],
+                puuid: jSummoner["puuid"],
+                profileIconId: jSummoner["profileIconId"],
+                summonerLevel: jSummoner["summonerLevel"],
+                name: name,
+                gameName: jRiotAcc["gameName"],
+                tagLine: jRiotAcc["tagLine"],
+                server: server
+            }))
             console.log(`Saved user "${name}" of server "${server}"`)
 
             const jRanked = await (await fetch(api.getRankedEntries(server, jSummoner.id))).json()
             fs.writeFileSync(`./data/profiles/${puuid}/ranked.json`, JSON.stringify(jRanked))
 
-            const jMastery = await (await fetch(api.getChampionMasteryRequest(server, jSummoner.id))).json()
-            fs.writeFileSync(`./data/profiles/${puuid}/mastery.json`, JSON.stringify(jMastery))
+            const jMastery = await (await fetch(api.getChampionMasteryRequestByPuuid(server, puuid))).json()
+            const topChamps = []
+            for (let i = 0; i <= 24; i++) {
+                if (jMastery[i] === undefined) continue
+                topChamps.push(jMastery[i]);
+            }
+            fs.writeFileSync(`./data/profiles/${puuid}/mastery.json`, JSON.stringify(topChamps))
 
             const jMatches = await (await fetch(api.getRecentMatchesId(api.getRegionFromServer(server), puuid))).json()
             fs.writeFileSync(`./data/profiles/${puuid}/matches.json`, JSON.stringify(jMatches))
@@ -96,6 +117,11 @@ module.exports = {
         }
         return undefined
     },
+    /**
+     * How long ago was the user's account refreshed in seconds
+     * @param {String} puuid 
+     * @returns {number} Number of seconds
+     */
     getRefreshTimeInSeconds(puuid) {
         const epochCreated = this.getRefreshTimeEpochByPuuid(puuid)
 
@@ -132,6 +158,11 @@ module.exports = {
         }
         return Math.floor(seconds) + ` second${actions.pluralOrNot(Math.floor(interval))} ago`;
     },
+    /**
+     * Get the time when the user's account was refreshed or created
+     * @param {String} puuid User's puuid
+     * @returns {number} epoch when the profile was refreshed
+     */
     getRefreshTimeEpochByPuuid(puuid) {
         return actions.getDataFromJSON(`./data/profiles/${puuid}/creationTime.json`)["time"]
     },
@@ -157,22 +188,31 @@ module.exports = {
      * @returns User's PUUID, or undefined if user doesn't exist
      */
     async getPuuidByName(server, name) {
+        // Vérifie que le dossier avant profil existe
         this.checkFolderExistsProfile();
 
+        // Si le profil est déjà sauvegardé
         if (this.isProfileSavedByName(name)) {
+            // Pour chaque dossier d'utilisateur
             for (let user of fs.readdirSync(`./data/profiles/`)) {
+                // Pour chaque dossier de chaque utilisateur
                 for (let file of fs.readdirSync(`./data/profiles/${user}/`)) {
+                    // Si le nom du fichier JSON = nom à trouver, OK
                     if (file === `${name}.json`) {
                         return actions.getDataFromJSON(`./data/profiles/${user}/${file}`)["puuid"]
                     }
                 }
             }
+
             await this.refreshProfileByName(server, name)
         }
 
-        const sum = await (await fetch(api.getSummonerRequestByName(server, name))).json()
+        // Fonctionne au 19.08.24
+        const httpr = await fetch(api.getSummonerRequestByRID(api.getRegionFromServer(server), name))
+        const sum = await (httpr).json()
         const saved = await this.saveProfile(server, sum["puuid"])
 
+        console.log(sum["puuid"], saved)
         if (saved === undefined) return undefined
         return sum["puuid"]
     },
@@ -217,9 +257,17 @@ module.exports = {
             console.log("An error occured :\n" + err)
         }
     },
+    /**
+     * Current DDragon version
+     * @returns {String} DDragon version
+     */
     getDDragonVersion() {
         return actions.getDataFromJSON('./data/versionApi.json').DDragon
     },
+    /**
+     * Fetch DDragon version from web
+     * @returns {Promise<String>} DDragon version
+     */
     async fetchDDragonVersion(){
         const data = await( await fetch('https://ddragon.leagueoflegends.com/api/versions.json')).json()
 
@@ -227,12 +275,15 @@ module.exports = {
         await fs.promises.writeFile(path.resolve(`./data/`, `versionApi.json`), JSON.stringify({
             "DDragon": data[0]
         }))
+        console.log("DDragon version is up to date.")
+        return data[0]
     },
     async setupAllChamps(){
         const data = await (await fetch(`https://ddragon.leagueoflegends.com/cdn/${this.getDDragonVersion()}/data/en_US/champion.json`)).json()
         // ne contient pas toutes les infos : pour plus de détails prendre /champion/"Aatrox".json
         
         await fs.promises.writeFile(path.resolve(`./data/`, `champions.json`), JSON.stringify(data))
+        console.log("Champion list is up to date.")
     },
     //#endregion
     
