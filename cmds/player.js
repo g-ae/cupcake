@@ -98,7 +98,6 @@ module.exports = {
         "No information available",
         "This user is currently not ranked"
       );
-    console.log(jranked);
     for (let nb in jranked) {
       try {
         let rank = jranked[nb]["tier"].toLowerCase();
@@ -213,7 +212,7 @@ module.exports = {
       if (!cache.isMatchSaved(m)) {
         const r = await fetch(api.getMatchDetails(cpk.region, m));
         if (parseInt(r.status) !== 200) {
-          console.log(`${r.status} - ${r.statusText} when saving match ${m}`);
+          console.error(`${r.status} - ${r.statusText} when saving match ${m}`);
         } else {
           const j = await r.json();
           cache.saveMatch(j, j["metadata"]["matchId"]);
@@ -262,7 +261,6 @@ module.exports = {
     if (interaction.user.id === i.user.id) {
       const cpk = CPK.find(interaction.id);
       collector.stop();
-      console.log(i.component.customId);
       try {
         if (!i.replied) await i.deferUpdate();
       } catch (e) {
@@ -287,7 +285,6 @@ module.exports = {
   },
   getRowButtonMasteries(iid) {
     // id : masteries
-    console.info("MASTERIESBUTTON", "masteries" + iid);
     return new Discord.MessageButton({
       customId: "masteries" + iid,
       emoji: masteries.m7,
@@ -297,7 +294,6 @@ module.exports = {
   },
   getRowButtonMatches(iid) {
     // id : matches
-    console.info("MATCHESBUTTON", "matches" + iid);
     return new Discord.MessageButton({
       customId: "matches" + iid,
       emoji: "🎮",
@@ -307,7 +303,6 @@ module.exports = {
   },
   getRowButtonProfile(iid) {
     // id : profile
-    console.info("PROFILEBUTTON", "profile" + iid);
     return new Discord.MessageButton({
       customId: "profile" + iid,
       emoji: "🗒️",
